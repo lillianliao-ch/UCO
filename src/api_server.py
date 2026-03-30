@@ -178,6 +178,23 @@ def toggle_pipeline(req: PipelineToggleRequest):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+class PipelineRunRequest(BaseModel):
+    pipeline_id: str
+
+@app.post("/api/system/pipelines/run")
+def run_pipeline_manual(req: PipelineRunRequest):
+    try:
+        # Instead of running everything, we can execute just one. 
+        # For simplicity, we just trigger main.py in the background for now since main.py already parses pipelines.yaml.
+        # Future improvement: modify main.py to accept arguments.
+        import subprocess
+        log_path = "/tmp/pipeline_run.log"
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "main.py")
+        subprocess.Popen(f"python3 {script_path} > {log_path} 2>&1", shell=True)
+        return {"status": "success", "message": f"已成功将运行指令注入系统挂载点。日志捕获于: {log_path}"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @app.get("/api/news/trend")
 def get_trend_news():
     """

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import React from "react";
 import { Database, Bell, LayoutList, CheckSquare, Settings, Play, Search, Info, LayoutTemplate, Palette } from "lucide-react";
+import TriggerModal from "@/components/TriggerModal";
 
 export const metadata: Metadata = {
   title: "Media Query Console",
@@ -42,9 +43,7 @@ export default function RootLayout({
             ))}
           </nav>
 
-          <button className="mt-8 bg-[var(--app-blue)] text-white w-full max-w-[230px] font-bold text-lg rounded-full py-4 hover:bg-[var(--app-blue-hover)] transition-colors shadow-md flex justify-center items-center gap-2">
-            开始了，采集 <Play size={18} className="fill-white" />
-          </button>
+          <TriggerModal />
           
           {/* Profile Section */}
           <div className="mt-auto mb-4 flex items-center gap-3 hover:bg-[var(--app-hover)] p-3 rounded-full cursor-pointer w-[250px] transition-colors">
@@ -60,70 +59,11 @@ export default function RootLayout({
         </header>
 
         {/* Main Content Area (Data Source Management) */}
-        <main className="flex-1 w-full max-w-[700px] min-h-screen border-r border-[var(--app-border)] bg-white relative">
+        <main className="flex-1 w-full min-h-screen bg-white relative">
           {children}
         </main>
 
-        {/* Right Sidebar - System Tools */}
-        <aside className="w-[350px] pl-8 py-4 sticky top-0 h-screen overflow-y-auto hidden lg:block bg-white">
-          
-          <div className="bg-[var(--app-bg)] mb-6 z-10 sticky top-0 border border-transparent">
-            <div className="bg-[var(--app-gray-light)] flex items-center gap-3 px-4 py-3 rounded-full border border-[var(--app-border)] focus-within:border-[var(--app-blue)] focus-within:bg-white transition-colors shadow-sm">
-              <Search className="text-[var(--app-gray)]" size={18} />
-              <input 
-                type="text" 
-                placeholder="Search Console" 
-                className="bg-transparent text-black outline-none w-full placeholder-[var(--app-gray)] text-sm"
-              />
-            </div>
-          </div>
-          
-          {/* Action Tips Card */}
-          <div className="bg-[var(--app-gray-light)] rounded-2xl p-4 mt-2 border border-[var(--app-border)]">
-            <div className="flex items-center gap-2 mb-3">
-              <Info size={20} className="text-black" />
-              <h2 className="text-lg font-bold">操作提示</h2>
-            </div>
-            <div className="text-[sm] text-[var(--app-gray)] flex flex-col gap-2">
-              <p>默认 dry-run，不会真实发布。</p>
-              <p>会话失效会触发登录提醒。</p>
-            </div>
-          </div>
-
-          {/* Module Mapping Preview */}
-          <div className="bg-[var(--app-gray-light)] rounded-2xl p-4 mt-4 border border-[var(--app-border)]">
-            <div className="flex items-center gap-2 mb-3">
-              <LayoutTemplate size={20} className="text-black" />
-              <h2 className="text-lg font-bold">模块映射预览</h2>
-            </div>
-            <div className="flex flex-col gap-4">
-              <div>
-                <span className="text-[13px] text-[var(--app-gray)] block mb-1">主导航</span>
-                <span className="font-bold text-[15px]">Left Rail / Home Nav</span>
-              </div>
-              <div>
-                <span className="text-[13px] text-[var(--app-gray)] block mb-1">主内容区</span>
-                <span className="font-bold text-[15px]">Center Timeline Column</span>
-              </div>
-              <div>
-                <span className="text-[13px] text-[var(--app-gray)] block mb-1">辅助栏</span>
-                <span className="font-bold text-[15px]">Right Sidebar Cards</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Theme Mode */}
-          <div className="bg-[var(--app-gray-light)] rounded-2xl p-4 mt-4 border border-[var(--app-border)]">
-            <div className="flex items-center gap-2 mb-3">
-              <Palette size={20} className="text-black" />
-              <h2 className="text-lg font-bold">主题模式</h2>
-            </div>
-            <p className="text-[14px] text-[var(--app-gray)] flex items-center gap-2">
-               手动模式 - 当前亮色 <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>
-            </p>
-          </div>
-
-        </aside>
+        {/* Right Sidebar - System Tools (Removed per PM architecture plan) */}
 
       </body>
     </html>

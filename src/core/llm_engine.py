@@ -85,17 +85,47 @@ class QwenEngine:
         return selected_events
 
     def synthesize_single_article(self, event: RawContentEvent) -> str:
-        print(f"🧠 [Brain: Writer] 正在为【{event.title[:15]}...】生成独立小红书文案...")
+        # Legacy fallback method for backwards compatibility
+        return self.synthesize_with_prompt(event, "xhs_style_a_lilian.md")
+
+    def synthesize_with_prompt(self, event: RawContentEvent, prompt_file: str) -> str:
+        print(f"🧠 [Brain: Writer] 正在为【{event.title[:15]}...】注入专属管线人设({prompt_file})...")
+        import urllib.request
+        import json
+        import os
+        from dotenv import load_dotenv
+        
+        load_dotenv("/Users/lillianliao/notion_rag/.env")
+        api_key = os.environ.get("DASHSCOPE_API_KEY", "sk-4e2bb9108e1541f9b7dd88855922c7a3")
+        
         try:
-            prompt_template_path = os.path.join(os.path.dirname(__file__), "..", "..", "config", "prompts", "xhs_style_a_lilian.md")
+            prompt_template_path = os.path.join(os.path.dirname(__file__), "..", "..", "config", "prompts", prompt_file)
             with open(prompt_template_path, "r", encoding="utf-8") as f:
                 prompt_template = f.read()
-            prompt = prompt_template.format(title=event.title, content=event.content, url=event.url)
+                
+            # Safely format strings if the template contains {title} etc (most custom prompts might just append it)
+            if "{title}" in prompt_template:
+                prompt = prompt_template.format(title=event.title, content=event.content, url=event.url)
+            else:
+                prompt = f"{prompt_template}\n\n=============================\n【待分析源素材】\n标题：{event.title}\n内容：{event.content}\n链接：{event.url}\n=============================\n\n请严格履行你的设定，进行深度提炼与多维外发格式重写："
         except Exception as e:
-            print(f"⚠️ 无法读取外部 Prompt 文件，由于安全回退触发空处理: {e}")
-            return f"【{event.title[:15]}】\\n极客新情报送达。\\n\\n由于系统提示词模板 {prompt_template_path} 丢失，生成终止。 ({event.url})"
-        
-        res = self.call_qwen(prompt)
-        if not res:
-            return f"【{event.title[:15]}】\\n极客新情报送达。\\n\\n👉 解读:\\n底层通信异常，请阅读原文。\\n\\n💡 启示:\\n保持敏锐。 ({event.url})"
-        return res
+            print(f"⚠️ 无法读取外部 Prompt 文件 {prompt_file}，由于安全回退触发空处理: {e}")
+            return f"【{event.title[:15]}】\n极客新情报送达。\n\n由于系统提示词模板丢失，生成终止。 ({event.url})"
+            
+        data = {
+            "model": "qwen-plus",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.4
+        }
+        req = urllib.request.Request(
+            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+            data=json.dumps(data).encode('utf-8'),
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        )
+        try:
+            with urllib.request.urlopen(req) as resp:
+                result = json.loads(resp.read().decode('utf-8'))
+                return result['choices'][0]['message']['content'].strip()
+        except Exception as e:
+            print(f"❌ LLM API 故障: {e}")
+            return f"【{event.title[:15]}】\n极客新情报送达。\n\n👉 解读:\n底层通信异常，请阅读原文。\n\n💡 启示:\n保持敏锐。 ({event.url})"

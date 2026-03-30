@@ -1,21 +1,24 @@
-# Supported Features Ledger (v1.0 Baseline)
+# Supported Features Ledger (v1.5 Baseline)
 
-## Inbound Sourcing (Sources)
-- ✅ **HackerNews Firehose**: Integrates with OpenCLI to effortlessly breach the global English tech barrier.
-- ✅ **Legacy RSS Ingestion**: Smoothly ports Lillian's existing `ai_news_tracker` high-quality feeds (InfoQ, 36Kr, Jiqizhixin).
-- ⏳ **Boss Zhipin ATS Engine**: Future candidate pool aggregation module.
+## 📡 Inbound Sourcing (Sources)
+- ✅ **Live VIP Footprint Radar (`duckduckgo-search`)**: Actively grabs S/A+ tier candidates from the local AI Headhunter internal SQLite database, formats targeted queries, and scours the internet for their last 30 days of public news, podcasts, PRs, and GitHub activity.
+- ✅ **CRM Cross-Talk (AI Headhunter DB)**: Taps into `personal-ai-headhunter/data/headhunter_dev.db` to extract executive talent intel for tracking.
+- ✅ **Legacy RSS Ingestion**: Smoothly ports high-quality tech feeds (InfoQ, 36Kr, Jiqizhixin) and financial filings (WSJ, SEC 13F) via feedparser.
+- ✅ **HackerNews & ProductHunt Firehose**: Leverages legacy APIs to aggregate deep-tech solopreneur insights and globally trending repos.
 
-## Core Processing (Brains)
-- ✅ **Intelligent Priority Selector**: Generates candidate pools and routes them into the LLM array to actively pick top constraints (Hardcore Models, Prominent Views, Vibe Coding, GitHub libraries) before rendering.
-- ✅ **1-to-1 Independent Distro Loop**: Deprecates bulk summarization in favor of generating singular, focused deep-dive analytics per Xiaohongshu draft.
-- ✅ **LLM Pipeline**: Dual-Persona writing prompt integration (Qwen "Lilian聊AI" persona).
-- ✅ **Aesthetic Typography Engine**: The pure-python `Pillow` deterministic canvas renderer for hard-coded minimalist visual output.
+## 🧠 Core Processing (Brains)
+- ✅ **Dynamic Persona Injection**: Moves away from hard-coded single-persona structures. The LLM Engine acts as a director dynamically loading Markdown personas (`org_chart_analysis.md`, `finance_hardcore_report.md`, `live_footprint_analysis.md`) per pipeline requirement.
+- ✅ **Intelligent Priority Selector**: Evaluates raw context dumps to bubble up the top 3 highest-value signals per pipeline run.
+- ✅ **Aesthetic Typography Engine**: A robust, pure-python `Pillow` deterministic canvas renderer for Social Media posters (Xiaohongshu & WeChat Covers).
 
-## Outbound Distro (Publishers)
+## 📭 Outbound Distro (Publishers)
+- ✅ **Feishu Custom Bot Webhook (`feishu_adapter.py`)**: Seamless, real-time push to private Lark/Feishu workgroups, supporting text and post payloads mapping to `FEISHU_WEBHOOK_URL`.
+- ✅ **Enterprise WeChat (WeCom) CLI Bridge (`wecom_adapter.py`)**: Highly integrated `subprocess` wrapper utilizing `wecom-cli` to bypass strict proxy requirements and inject intelligence directly into WeCom.
+- ✅ **Telegram Global Beacon**: Mobile broadcast pipeline dynamically routing plain-text "Ice Breaker" templates and debugging logs straight to Lilian's mobile.
+- ✅ **Native WeChat MP Publisher (CDP/Playwright)**: Bypass bridge to inject LLM rendered payloads directly into the UEditor iframe via CDP.
 - ✅ **OpenCLI Xiaohongshu Dispatcher**: Native draft injection avoiding manual staging.
-- ✅ **Telegram Global Beacon**: Mobile broadcast pipeline dynamically utilizing root configuration keys to mirror orchestrator success rates onto Lilian's device instantly.
-- ✅ **Native WeChat MP Publisher (CDP/Playwright)**: Utilizes a custom CDP bypass bridge (`wechat_adapter.py`) to connect to an alive Chrome instance. It programmatically authenticates, parses MP tokens, and injects LLM rendered HTML payloads directly into the UEditor iframe via `document.execCommand`, entirely sidestepping strict official API publishing limits.
-- ⏳ **Bilibili Video Integrations**: To be mapped post-V1 stability.
 
-## System Execution (Orchestration)
-- ✅ **Unattended Automaton (Crontab)**: Employs `deploy_cron.sh` wrapped securely in MacOS environments to execute purely autonomously every morning at 08:00 AM, deprecating legacy loops.
+## ⚙️ System Execution (Orchestration & UX)
+- ✅ **Next.js Web Dashboard**: Modern React interface (`web_dashboard/`) running on `api_server.py`. Provides real-time visibility into channel toggle states (`pipelines.yaml`) and allows live Markdown editing of Prompt constraints.
+- ✅ **Targeted Pipeline Runner**: `python3 main.py <pipeline_id>` support for isolating specific agent workflows (e.g. `live_footprint_monitor`) for testing.
+- ✅ **Isolated State Management**: `EventStateManager` now tracks deduplication on a strictly per-pipeline basis, allowing identical root articles to be processed differently by different pipelines without causing memory collisions.

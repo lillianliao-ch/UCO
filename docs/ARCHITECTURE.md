@@ -1,20 +1,46 @@
-# System Architecture
+# System Architecture (v1.5 Multi-Pipeline Era)
 
-## 1. Design Philosophies
-- **Contract-first Validation**: Every cross-border pipeline interaction is type-checked using Pydantic models defined in `src/core/schemas.py`.
-- **1-to-1 Content Factory Pattern**: Orchestrates bulk inbound data pools by feeding them through an LLM evaluation matrix (Qwen Selector) before strictly looping exactly via 8 independent event generations.
-- **Foreign Body Shielding (Adapter Pattern)**: Non-Python CLI scripts or erratic open-source repositories found on GitHub must be executed purely via Python's `subprocess.run()`. No native dependency chains will intertwine outside the Python virtual environment.
-- **Fail-Fast Routing**: If a specific platform push fails (e.g., XiaoHongShu rate limiting), the unified Event Bus gracefully marks the node as `FAILED_RETRY` and releases the thread.
+## 1. Design Philosophies (The Orchestrator Matrix)
+- **Zero-Touch Dynamic Dispatch**: The core engine (`main.py`) no longer contains hard-coded business rules. Instead, it reads `config/pipelines.yaml` to dynamically spawn `Source`, inject `Prompt/Persona`, and route to `Publisher`. Adding a new business vector requires zero Python code changes.
+- **Contract-first Validation**: Every cross-border pipeline interaction is type-checked using Pydantic models defined in `src/core/schemas.py` (`RawContentEvent`).
+- **Human-in-the-Loop (HitL) + Autonomous Output**: 
+  - High-risk platforms (Xiaohongshu/WeChat Official Accounts) route to a Drafts folder with generated Pillow posters, awaiting human review.
+  - Low-friction platforms (Telegram, Feishu, WeCom) receive real-time autonomous pushes.
+- **Foreign Body Shielding (Adapter Pattern)**: Non-Python CLI scripts (`wecom-cli`) or erratic web services (`duckduckgo-search`) are wrapped in hyper-resilient adapter classes that will fail gracefully and sequentially without bringing down the global orchestration loop.
 
 ## 2. Directory Topography
 ```text
 universal_content_orchestrator/
+├── config/
+│   ├── channels.yaml         # Legacy global channel toggles
+│   ├── pipelines.yaml        # [NEW] Master Multiverse Pipeline definitions
+│   └── prompts/              # Dynamic LLM Persona injects (e.g. live_footprint_analysis.md)
 ├── src/
-│   ├── core/           # Interfaces (Pydantic schemas), AI Engines (LLM/Vision)
-│   ├── sources/        # Data injection plugins (TrendRadar MCP Webhooks, OpenCLI, Boss)
-│   └── publishers/     # Output dispatchers (XHS, Telegram, WeChat)
-├── docs/               # System tracking and feature ledgers
-├── data/               # SQLite state tracking schemas
-├── deploy_cron.sh      # MacOS Crontab automated bootstrap loader
-└── main.py             # Event loop & multi-agent routing master
+│   ├── core/           
+│   │   ├── llm_engine.py     # Qwen API integration & Prompt synthesis
+│   │   ├── visual_engine.py  # Pillow typography and rendering
+│   │   └── state_manager.py  # SQLite de-duplication and memory tracking
+│   ├── sources/        
+│   │   ├── base_source.py
+│   │   ├── db_talent_source.py     # Deep link to AI Headhunter local SQLite
+│   │   ├── live_footprint_source.py # DDGS-driven VIP internet scanner
+│   │   └── _legacy_rss.py
+│   ├── publishers/     
+│   │   ├── telegram_adapter.py     # Direct Bot API
+│   │   ├── wecom_adapter.py        # Subprocess wrapper for @wecom/cli
+│   │   ├── feishu_adapter.py       # Custom Bot Webhook caller
+│   │   └── opencli_xhs_adapter.py  
+├── web_dashboard/            # Next.js UI for pipeline visibility and rule mapping
+├── data/                     # State databases & image dumps
+├── api_server.py             # Expressive REST interface linking local DB with Web Dashboard
+└── main.py                   # Master Pipeline Event Loop Runner
 ```
+
+## 3. Data Flow Execution Sequence
+1. **Cron/LaunchAgent Trigger**: `python3 main.py` is invoked.
+2. **Pipeline Iteration**: Reads `config/pipelines.yaml`, spawns active pipelines independently.
+3. **Data Hydration (Source)**: Adapters (e.g., `LiveFootprintSource`) query external APIs/Databases mapping raw data to `RawContentEvent`.
+4. **Hippocampus Check (EventStateManager)**: Rejects events processed in previous runs for the *specific pipeline ID*.
+5. **Selection Matrix (Qwen Engine)**: The LLM rates events. Top `N` events survive.
+6. **Synthesis (Brain)**: Fuses the chosen `Prompt` with the `Event` to generate Markdown content.
+7. **Publishing (Publisher)**: Emits content iteratively to WeChat/Feishu/Telegram based on YAML refs.

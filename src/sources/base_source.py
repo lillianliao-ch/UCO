@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List
-from core.schemas import RawContentEvent
+from src.core.schemas import RawContentEvent
 
 class BaseSourceAdapter(ABC):
     """

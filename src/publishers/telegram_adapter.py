@@ -67,23 +67,20 @@ class TelegramPublisher:
         print(f"📨 [Publisher: Telegram] 正在投递文章: {title[:15]}...")
         
         try:
-            # Step 1: Send Photo with title as caption
-            caption = f"🎨 <b>【草稿审核区】</b>\\n<b>{title}</b>\\n\\n<i>配图海报如上，请检阅主体文字：</i>"
-            url_photo = f"https://api.telegram.org/bot{self.bot_token}/sendPhoto"
-            
-            with open(poster_path, 'rb') as photo_file:
-                # Use requests for multipart/form-data
-                resp = requests.post(
-                    url_photo,
-                    data={"chat_id": self.chat_id, "caption": caption, "parse_mode": "HTML"},
-                    files={"photo": photo_file}
-                )
+            if poster_path:
+                # Step 1: Send Photo with title as caption
+                caption = f"🎨 <b>【草稿审核区】</b>\n<b>{title}</b>\n\n<i>配图海报如上，请检阅主体文字：</i>"
+                url_photo = f"https://api.telegram.org/bot{self.bot_token}/sendPhoto"
                 
+                with open(poster_path, 'rb') as photo_file:
+                    resp = requests.post(
+                        url_photo,
+                        data={"chat_id": self.chat_id, "caption": caption, "parse_mode": "HTML"},
+                        files={"photo": photo_file}
+                    )
+                    
             # Step 2: Send the Long Markdown Draft using reliable sendMessage
             url_msg = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-            
-            # Escape HTML characters for Telegram if we are sending Markdown? No, wait, if we send text, we can just not use parsing mode or use Markdown.
-            # Let's send the raw markdown without parsing mode so telegram doesn't complain about unclosed tags.
             payload_msg = json.dumps({"chat_id": self.chat_id, "text": content_md[:4000]}).encode('utf-8')
             req = urllib.request.Request(url_msg, data=payload_msg, headers={'Content-Type': 'application/json'})
             urllib.request.urlopen(req)
