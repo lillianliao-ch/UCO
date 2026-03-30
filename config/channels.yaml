@@ -1,0 +1,37 @@
+# ==============================================================================
+# Universal Content Orchestrator - 渠道总控闸 (Channel Controller)
+# ==============================================================================
+# 修改此文件的 active 状态并保存，系统轮询时会自动生效
+# ==============================================================================
+
+inbound_sources:
+  - id: "trendradar"
+    description: "通过本机的 TrendRadar 抓取每日宏观 AI 热点 (接管外部情报雷达)"
+    active: true
+    adapter_path: "sources.trendradar_source.TrendRadarAdapter"
+
+  - id: "legacy_rss"
+    description: "原始硬编码 RSS 抓取 (已被轻量级 TrendRadar 替代)"
+    active: false
+    adapter_path: "sources.legacy_rss.LegacyRSSSource"
+
+  - id: "opencli_hackernews"
+    description: "利用 OpenCLI Browser Session 复用爬取外网技术栈"
+    active: true
+    adapter_path: "sources.opencli_hackernews.HackerNewsSource"
+
+outbound_publishers:
+  - id: "xiaohongshu"
+    description: "小红书无头自动化图片生成与发布"
+    active: true
+    adapter_path: "publishers.opencli_xhs_adapter.XhsPublisher"
+
+  - id: "wechat_official"
+    description: "微信公众号草稿/群发通道"
+    active: true
+    adapter_path: "publishers.wechat_adapter.WechatPublisher"
+
+  - id: "telegram_log"
+    description: "系统错误与精选汇总告警"
+    active: true
+    adapter_path: "publishers.telegram_adapter.TelegramPublisher"

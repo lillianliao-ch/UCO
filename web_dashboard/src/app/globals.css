@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  --app-bg: #ffffff;
+  --app-text: #0f1419;
+  --app-gray: #536471;
+  --app-gray-light: #f7f9f9;
+  --app-border: #eff3f4;
+  --app-blue: #1d9bf0;
+  --app-blue-hover: #1a8cd8;
+  --app-card-bg: #f7f9f9;
+  --app-green: #00ba7c;
+  --app-hover: rgba(15, 20, 25, 0.1);
+}
+
+@theme {
+  --color-app-bg: var(--app-bg);
+  --color-app-text: var(--app-text);
+  --color-app-gray: var(--app-gray);
+  --color-app-gray-light: var(--app-gray-light);
+  --color-app-border: var(--app-border);
+  --color-app-blue: var(--app-blue);
+  --color-app-blue-hover: var(--app-blue-hover);
+  --color-app-card-bg: var(--app-card-bg);
+  --color-app-green: var(--app-green);
+  --color-app-hover: var(--app-hover);
+}
+
+body {
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow-y: scroll;
+}
+
+::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
+}

@@ -1,0 +1,44 @@
+pipelines:
+- active: true
+  description: 专注汇总与筛选全网最火爆的 AI 科技新闻并生成小红书极客风文案。
+  id: ai_news_daily
+  name: 🚀 AI 宏观行情与产品观察
+  prompt_template: xhs_style_a_lilian.md
+  publisher_refs:
+  - xiaohongshu
+  - telegram_log
+  source_refs:
+  - trendradar
+  - opencli_hackernews
+- active: true
+  description: 专门用于监听科研大牛、大厂技术骨干的动向，并格式化为背调卡片供猎头端使用。
+  id: ai_talent_tracking
+  name: 🕵️‍♂️ 高级领军 AI 人才异动哨兵
+  prompt_template: org_chart_analysis.md
+  publisher_refs:
+  - telegram_log
+  - feishu_webhook
+  source_refs:
+  - linkedin_monitor
+  - maimai_updates
+- active: false
+  description: 抓取并提炼月入过万美金的海外一人开发项目、闷声发财的 AI 服务商业逻辑。
+  id: solopreneur_patterns
+  name: 💡 超级个体与一人公司业务模式库
+  prompt_template: solopreneur_insight.md
+  publisher_refs:
+  - wechat_official
+  - telegram_log
+  source_refs:
+  - producthunt_hunter
+  - twitter_indie_hackers
+- active: false
+  description: 追踪 GPU 算力供需、美股 AI 巨头财报与知名私募重仓动向。
+  id: finance_insights
+  name: 💹 金融资本与算力投资风向标
+  prompt_template: finance_hardcore_report.md
+  publisher_refs:
+  - telegram_log
+  source_refs:
+  - sec_13f_filings
+  - wsj_ai_finance
