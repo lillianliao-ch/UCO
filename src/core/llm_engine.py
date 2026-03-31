@@ -29,13 +29,13 @@ class QwenEngine:
             print(f"❌ LLM API 故障: {e}")
             return ""
 
-    def select_top_articles(self, events: List[RawContentEvent], limit: int) -> List[RawContentEvent]:
+    def select_top_articles(self, events: List[RawContentEvent], limit: int, filter_template: str = "filter_priority.md") -> List[RawContentEvent]:
         """
         AI-driven heuristic filter. Prompts the LLM to select the most relevant events.
         """
         if len(events) <= limit: return events
         
-        print(f"🧠 [Brain: Selector] 正在对 {len(events)} 篇底料执行深度 AI 排序，提取 Top {limit}...")
+        print(f"🧠 [Brain: Selector] 正在对 {len(events)} 篇底料执行深度 AI 排序 ({filter_template})，提取 Top {limit}...")
         
         # Build catalogue
         catalogue = ""
@@ -43,7 +43,7 @@ class QwenEngine:
             catalogue += f"[{i}] {e.title}\\n"
             
         try:
-            prompt_template_path = os.path.join(os.path.dirname(__file__), "..", "..", "config", "prompts", "filter_priority.md")
+            prompt_template_path = os.path.join(os.path.dirname(__file__), "..", "..", "config", "prompts", filter_template)
             with open(prompt_template_path, "r", encoding="utf-8") as f:
                 prompt_template = f.read()
             prompt = prompt_template.format(catalogue=catalogue, limit=limit)

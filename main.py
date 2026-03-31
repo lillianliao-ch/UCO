@@ -84,26 +84,58 @@ def run_dynamic_pipeline(pipe):
     
     print("📡 [1] 开始从管线注册的源头抽水汇聚...")
     # 动态路由装载源头数据
-    if "trendradar" in source_refs:
+    # 1. TrendRadar (支持老的 'trendradar' 和细粒度 'tr_xxx')
+    tr_platforms = []
+    for src in source_refs:
+        if src.startswith("tr_"):
+            tr_platforms.append(src.replace("tr_", ""))
+            
+    if "trendradar" in source_refs or tr_platforms:
         from src.sources.trendradar_source import TrendRadarSource
-        events.extend(TrendRadarSource().fetch(limit=15))
-    if "rss_hacker_news" in source_refs:
+        kwargs = {"limit": 15}
+        if tr_platforms:
+            kwargs["platforms"] = tr_platforms
+        events.extend(TrendRadarSource().fetch(**kwargs))
+
+    # 2. OpenCLI HackerNews (向下兼容)
+    if "opencli_hackernews" in source_refs or "rss_hacker_news" in source_refs:
         from src.sources.opencli_hackernews import OpenCLIHackerNewsSource
         events.extend(OpenCLIHackerNewsSource().fetch(limit=15))
+
+    # 3. 简历/人才数据库 (向下兼容)
     if "maimai_updates" in source_refs or "linkedin_monitor" in source_refs:
         from src.sources.db_talent_source import DBTalentSource
         events.extend(DBTalentSource().fetch(limit=10))
+
+    # 4. 细粒度 RSS 与旧 RSS 兼容池
+    rss_map_active = {}
+    # Legacy Blocks
     if "producthunt_hunter" in source_refs:
-        from src.sources.legacy_rss import LegacyRSSSource
-        rss = LegacyRSSSource({
-            "ProductHunt": "https://ph-rss.stephenou.com/",
-            "Show_HackerNews": "https://hnrss.org/show"
-        })
-        events.extend(rss.fetch(limit=10))
+        rss_map_active["ProductHunt"] = "https://ph-rss.stephenou.com/"
+        rss_map_active["Show_HackerNews"] = "https://hnrss.org/show"
     if "wsj_ai_finance" in source_refs or "sec_13f_filings" in source_refs:
+        rss_map_active["WSJ_Tech_Finance"] = "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml"
+        rss_map_active["TechCrunch_AI"] = "https://techcrunch.com/category/artificial-intelligence/feed/"
+    if "chinese_tech_media" in source_refs:
+        rss_map_active["36Kr"] = "https://36kr.com/feed"
+        rss_map_active["Jiqizhixin"] = "https://www.jiqizhixin.com/rss"
+        rss_map_active["GeekPark"] = "https://www.geekpark.net/rss"
+        rss_map_active["TMTPost"] = "https://www.tmtpost.com/rss"
+        
+    # Granular Blocks
+    if "rss_36kr" in source_refs: rss_map_active["36Kr"] = "https://36kr.com/feed"
+    if "rss_tmtpost" in source_refs: rss_map_active["TMTPost"] = "https://www.tmtpost.com/rss"
+    if "rss_jiqizhixin" in source_refs: rss_map_active["Jiqizhixin"] = "https://www.jiqizhixin.com/rss"
+    if "rss_geekpark" in source_refs: rss_map_active["GeekPark"] = "https://www.geekpark.net/rss"
+    if "rss_techcrunch" in source_refs: rss_map_active["TechCrunch_AI"] = "https://techcrunch.com/category/artificial-intelligence/feed/"
+    if "rss_wsj" in source_refs: rss_map_active["WSJ_Tech_Finance"] = "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml"
+    if "rss_hackernews" in source_refs: rss_map_active["HackerNews"] = "https://hnrss.org/newest?q=AI"
+    if "rss_producthunt" in source_refs: rss_map_active["ProductHunt"] = "https://ph-rss.stephenou.com/"
+    
+    if rss_map_active:
         from src.sources.legacy_rss import LegacyRSSSource
-        rss = LegacyRSSSource({"WSJ_Tech_Finance": "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml"})
-        events.extend(rss.fetch(limit=10))
+        rss = LegacyRSSSource(rss_map_active)
+        events.extend(rss.fetch(limit=15))
     if "live_footprint_source" in source_refs:
         from src.sources.live_footprint_source import LiveFootprintSource
         events.extend(LiveFootprintSource().fetch(limit=3))
@@ -123,7 +155,8 @@ def run_dynamic_pipeline(pipe):
     
     print("\n🧠 [2] 激活主编鉴赏淘汰赛...")
     # 由于生成成本高，由模型决定最终执行力最大的前N篇文章
-    top_events = brain.select_top_articles(new_events, limit=3)
+    filter_tpl = pipe.get("filter_template", "filter_priority.md")
+    top_events = brain.select_top_articles(new_events, limit=3, filter_template=filter_tpl)
     
     print(f"\n🚀 [3] 锁定 {len(top_events)} 篇顶级锚点，开始逐点击破与分发：")
     for i, event in enumerate(top_events, 1):

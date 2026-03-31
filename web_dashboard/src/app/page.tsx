@@ -73,14 +73,28 @@ export default function PipelinesPage() {
 
   // Mappings for User-Friendly source names
   const SOURCE_MAP: Record<string, { label: string, desc: string }> = {
-    "trendradar": { label: "TrendRadar (热搜舆情核心)", desc: "内部含多个微博/百度热榜频道，需修改系统源码内的 trendradar_config.yaml" },
-    "opencli_hackernews": { label: "HackerNews 爬虫", desc: "追踪海外最新开源与技术讨论" },
-    "linkedin_monitor": { label: "领英异动哨兵", desc: "高管/研究员跳槽监控记录器" },
-    "maimai_updates": { label: "脉脉职言快讯", desc: "国内大厂离职/裁员/高管人事信号" },
-    "producthunt_hunter": { label: "ProductHunt 打新", desc: "每日独立黑客新品雷达" },
-    "twitter_indie_hackers": { label: "Twitter 海外独立开发者", desc: "追踪出海与搞钱项目" },
-    "sec_13f_filings": { label: "美驻 SEC 13F 文件", desc: "对冲基金重仓扫描" },
-    "wsj_ai_finance": { label: "WSJ 华尔街财经", desc: "硅谷巨头大单与投资报道" }
+    // TrendRadar MCP
+    "tr_baidu": { label: "📈 百度热点 (TrendRadar)", desc: "追踪国内全网突发与宏观头条" },
+    "tr_weibo": { label: "🔥 微博热搜 (TrendRadar)", desc: "追踪全网热议、发酵与突发事件" },
+    "tr_zhihu": { label: "🎓 知乎热榜 (TrendRadar)", desc: "深度吃瓜、硬核科技争议与行业知识点" },
+    "tr_wallstreetcn-hot": { label: "💵 华尔街见闻 (TrendRadar)", desc: "国内顶级的二级市场、财报与宏观经济风暴圈" },
+    "tr_bilibili-hot-search": { label: "📺 B站热搜 (TrendRadar)", desc: "年轻态现象级爆点与数码/AI大UP主动态" },
+    "tr_toutiao": { label: "📰 今日头条 (TrendRadar)", desc: "下沉与全民级泛社会焦点事件" },
+    
+    // Chinese RSS
+    "rss_36kr": { label: "💰 36Kr (中国创投情报)", desc: "本土 A/B 轮私募、创业风口首发" },
+    "rss_tmtpost": { label: "🚀 钛媒体 (TMTPost商业化)", desc: "AI 变现、国内商战、核心高层人事变动" },
+    "rss_jiqizhixin": { label: "🤖 机器之心", desc: "AI 前沿技术、大佬离职与大厂重组" },
+    "rss_geekpark": { label: "🛸 极客公园", desc: "国产 AI 消费级产品与创客生态" },
+    
+    // Global RSS
+    "rss_techcrunch": { label: "💸 TechCrunch AI", desc: "硅谷最强风投资本局、A轮初创团队 BD" },
+    "rss_wsj": { label: "📰 WSJ 华尔街科技金融", desc: "硅谷巨头大单、M&A与美股大事件" },
+    "rss_hackernews": { label: "👨‍💻 HackerNews", desc: "独立极客、技术开源、隐秘大牛离职动态" },
+    "rss_producthunt": { label: "💡 ProductHunt", desc: "每日海外独立黑客产品发榜打新" },
+    
+    // Advanced/Misc
+    "live_footprint_source": { label: "🌐 绝密足迹监控 (DuckDuckGo)", desc: "免密全网人物历史足迹动态扫描" }
   };
 
   const PUB_MAP: Record<string, string> = {
@@ -90,7 +104,14 @@ export default function PipelinesPage() {
     "feishu_webhook": "飞书工作台 (猎头/交付端点)"
   };
 
-  const AVAILABLE_SOURCES = Object.keys(SOURCE_MAP);
+  // Group definitions for UI
+  const SOURCE_GROUPS: Record<string, string[]> = {
+    "📊 TrendRadar 实况舆情": ["tr_baidu", "tr_weibo", "tr_bilibili-hot-search", "tr_zhihu", "tr_toutiao", "tr_wallstreetcn-hot"],
+    "🇨🇳 本土创投与商业媒体": ["rss_36kr", "rss_tmtpost", "rss_jiqizhixin", "rss_geekpark"],
+    "🌐 硅谷大厂与极客风投": ["rss_techcrunch", "rss_wsj", "rss_hackernews", "rss_producthunt"],
+    "🔒 追踪与审查引擎": ["live_footprint_source"]
+  };
+
   const AVAILABLE_PUBLISHERS = Object.keys(PUB_MAP);
 
   // Utility to handle array toggling
@@ -268,27 +289,31 @@ export default function PipelinesPage() {
                    <div className="flex items-center gap-2 text-gray-900 font-semibold text-sm border-b border-[#dadce0] pb-2">
                      1. 请勾选本管线的「数据采集探针」
                    </div>
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-                     {AVAILABLE_SOURCES.map(source => {
-                       const isSelected = editingPipeline.source_refs?.includes(source);
-                       const { label, desc } = SOURCE_MAP[source];
-                       return (
-                         <div 
-                           key={source}
-                           onClick={() => toggleArrayItem("source_refs", source)}
-                           className={`p-3 rounded-lg cursor-pointer transition-all border flex flex-col gap-1 ${isSelected ? 'bg-[#f0f7ff] border-[#0a66c2]' : 'bg-white border-[#dadce0] hover:bg-[#f1f3f4]'}`}
-                         >
-                            <span className={`text-sm font-semibold ${isSelected ? 'text-[#0a66c2]' : 'text-gray-700'}`}>
-                              {isSelected ? "✅ " : ""}{label}
-                            </span>
-                            <span className="text-[11px] text-gray-500 leading-tight">{desc}</span>
+                   
+                   <div className="flex flex-col gap-6 mt-2">
+                     {Object.entries(SOURCE_GROUPS).map(([groupName, sources]) => (
+                       <div key={groupName} className="flex flex-col gap-3">
+                         <div className="text-[12px] font-bold text-gray-400 uppercase tracking-widest pl-1">{groupName}</div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                           {sources.map(source => {
+                             const isSelected = editingPipeline.source_refs?.includes(source);
+                             const { label, desc } = SOURCE_MAP[source] || { label: source, desc: "" };
+                             return (
+                               <div 
+                                 key={source}
+                                 onClick={() => toggleArrayItem("source_refs", source)}
+                                 className={`p-3 rounded-lg cursor-pointer transition-all border flex flex-col gap-1.5 ${isSelected ? 'bg-[#f0f7ff] border-[#0a66c2]' : 'bg-[#f8f9fa] border-transparent hover:border-[#dadce0] hover:bg-white'}`}
+                               >
+                                  <span className={`text-sm font-semibold truncate ${isSelected ? 'text-[#0a66c2]' : 'text-gray-700'}`}>
+                                    {label}
+                                  </span>
+                                  <span className="text-[11px] text-gray-500 leading-snug line-clamp-2">{desc}</span>
+                               </div>
+                             )
+                           })}
                          </div>
-                       )
-                     })}
-                   </div>
-                   <div className="mt-2 text-xs text-gray-500 bg-[#f8f9fa] p-3 rounded-lg border border-[#dadce0] flex gap-2">
-                     <Settings size={16} className="text-gray-400 shrink-0"/>
-                     <p><b>关于 TrendRadar:</b> 这是一个聚合引擎，内部包含百度、微博、头条等多个频道。它的具体频道配置位于项目内的 <code className="bg-gray-200 px-1 rounded">trendradar_config.yaml</code> 中，本大盘主要控制是否整体唤醒它。</p>
+                       </div>
+                     ))}
                    </div>
                 </div>
 

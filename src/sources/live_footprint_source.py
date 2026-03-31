@@ -93,7 +93,7 @@ class LiveFootprintSource(BaseSourceAdapter):
                 events.append(RawContentEvent(
                     id=f"vip_footprint_{c_id}_{int(time.time())}",
                     title=f"🎯 实况盯梢: {name} ({tier}级) 最新动向库",
-                    url=link or "无源",
+                    url=link or f"vip_internal://{c_id}/{int(time.time())}",
                     content=merged_content,
                     source_channel="Global DDGS Protocol"
                 ))

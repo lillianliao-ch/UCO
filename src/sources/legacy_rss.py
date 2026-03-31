@@ -28,7 +28,6 @@ class LegacyRSSSource(BaseSourceAdapter):
                     url=entry.link
                 ))
         
-        # Enforce the strict overall global limit requested by the user
-        final_events = events[:limit]
-        print(f"✅ [Source: RSS] 聚合完毕，按限额截流输出 {len(final_events)} 篇综合资讯进入总线。")
-        return final_events
+        # Return all events collected from the configured sources, capped locally per source
+        print(f"✅ [Source: RSS] 聚合完毕，输出 {len(events)} 篇综合资讯进入总线。")
+        return events

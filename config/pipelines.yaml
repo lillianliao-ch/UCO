@@ -51,3 +51,25 @@ pipelines:
   - feishu_log
   source_refs:
   - live_footprint_source
+
+- active: true
+  description: 专为数字猎头设计的顶级情报网，追踪大厂组织架构重组、高层变动、知名AI创企千万级融资。
+  id: ai_industry_intel_monitor
+  name: 🚀 深科技猎头专线 (人事/融资/M&A)
+  filter_template: filter_priority_headhunter.md
+  prompt_template: ai_industry_intel_analysis.md
+  publisher_refs:
+  - telegram_log
+  - feishu_log
+  - wecom_notification
+  source_refs:
+  - tr_baidu
+  - tr_weibo
+  - tr_zhihu
+  - rss_36kr
+  - rss_tmtpost
+  - rss_jiqizhixin
+  - rss_geekpark
+  - rss_techcrunch
+  - rss_wsj
+  - rss_hackernews

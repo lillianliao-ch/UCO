@@ -23,6 +23,10 @@ class FeishuPublisher:
             print("⚠️ 未配置 FEISHU_WEBHOOK_URL 环境变量，跳过飞书 Webhook 投递。")
             return False
             
+        # 强制塞入飞书的安全校验自定义关键词 "！"
+        if "！" not in title and "!" not in title:
+            title += "！"
+            
         print(f"📨 [Publisher: Feishu] 飞书群组全景触达正在发射: {title[:15]}...")
         
         try:
@@ -53,7 +57,14 @@ class FeishuPublisher:
                 data=json.dumps(payload, ensure_ascii=False).encode('utf-8'), 
                 headers={'Content-Type': 'application/json'}
             )
-            urllib.request.urlopen(req)
+            resp = urllib.request.urlopen(req)
+            resp_body = resp.read().decode('utf-8')
+            resp_json = json.loads(resp_body)
+            
+            if resp_json.get("code", 0) != 0:
+                print(f"❌ [Feishu 草稿] 投递失败，飞书拒绝: {resp_json.get('msg')}")
+                return False
+                
             return True
             
         except Exception as e:
