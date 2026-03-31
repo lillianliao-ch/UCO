@@ -22,3 +22,10 @@
 - ✅ **Next.js Web Dashboard**: Modern React interface (`web_dashboard/`) running on `api_server.py`. Provides real-time visibility into channel toggle states (`pipelines.yaml`) and allows live Markdown editing of Prompt constraints.
 - ✅ **Targeted Pipeline Runner**: `python3 main.py <pipeline_id>` support for isolating specific agent workflows (e.g. `live_footprint_monitor`) for testing.
 - ✅ **Isolated State Management**: `EventStateManager` now tracks deduplication on a strictly per-pipeline basis, allowing identical root articles to be processed differently by different pipelines without causing memory collisions.
+
+## 📊 Process Management & Auditing (Phase 2 Architecture Roadmap)
+- 🚧 **Pipeline Observability Funnel**: Forcing all sources to report pre-filtering metrics (`scraped` -> `filtered_out` -> `passed`) to `pipeline_run_history` to eradicate the "blind crawler" problem.
+- 🚧 **Fault-Tolerant Execution Hub**: A rigid `try...finally` architecture guarding `main.py` ensures that if an LLM timeout triggers a core panic, the pipeline safely commits an `ERROR` state with tracebacks, preventing "zombie" database locks.
+- 🚧 **Bifurcated Publisher Gateway**: A strict separation of distribution endpoints:
+  - **Notify (Sync)**: Telegram/Feishu webhooks bypass all checks and fire instantly to alert the user.
+  - **Asset/Draft (Async)**: High-risk aesthetic platforms (WeChat/Xiaohongshu) immediately sink payloads into the `content_drafts` SQL database, triggering human-in-the-loop (HITL) manual review.

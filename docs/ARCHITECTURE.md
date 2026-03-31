@@ -3,9 +3,11 @@
 ## 1. Design Philosophies (The Orchestrator Matrix)
 - **Zero-Touch Dynamic Dispatch**: The core engine (`main.py`) no longer contains hard-coded business rules. Instead, it reads `config/pipelines.yaml` to dynamically spawn `Source`, inject `Prompt/Persona`, and route to `Publisher`. Adding a new business vector requires zero Python code changes.
 - **Contract-first Validation**: Every cross-border pipeline interaction is type-checked using Pydantic models defined in `src/core/schemas.py` (`RawContentEvent`).
-- **Human-in-the-Loop (HitL) + Autonomous Output**: 
-  - High-risk platforms (Xiaohongshu/WeChat Official Accounts) route to a Drafts folder with generated Pillow posters, awaiting human review.
-  - Low-friction platforms (Telegram, Feishu, WeCom) receive real-time autonomous pushes.
+- **Human-in-the-Loop (HitL) Bifurcated Gateway**: 
+  - **High-Risk (Async Drafts)**: Platforms requiring qualitative auditing (Xiaohongshu, WeChat Official Accounts) strictly route payloads to the SQLite `content_drafts` table, halting execution for manual GUI review.
+  - **Low-Friction (Sync Alerts)**: Notification platforms (Telegram, Feishu, WeCom) bypass the draft lock and push autonomously to rapidly alert the human operator.
+- **Strict Observability & Funnel Metrics**: Scrapers no longer silently yield text. They return `(content, stats_dict)` to strictly track the LLM's drop-off funnel (`scraped` -> `rejected` -> `accepted`) into `pipeline_run_history`, ensuring 100% transparent crawler health.
+- **Fail-Safe Execution**: The global orchestration loop employs deterministic `try...finally` resource cleanups to ensure database state (`STATUS: FAILED`) is properly closed during severe third-party API timeouts.
 - **Foreign Body Shielding (Adapter Pattern)**: Non-Python CLI scripts (`wecom-cli`) or erratic web services (`duckduckgo-search`) are wrapped in hyper-resilient adapter classes that will fail gracefully and sequentially without bringing down the global orchestration loop.
 
 ## 2. Directory Topography
