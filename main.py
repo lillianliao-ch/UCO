@@ -113,6 +113,16 @@ def run_dynamic_pipeline(pipe):
         if "live_footprint_source" in source_refs:
             from src.sources.live_footprint_source import LiveFootprintSource
             events.extend(LiveFootprintSource().fetch(limit=3))
+
+        # 5. GitHub Trending (新: UCO 标准源 + 事件总线广播)
+        if "github_trending" in source_refs:
+            from src.sources.github_trending_source import GitHubTrendingSource
+            events.extend(GitHubTrendingSource().fetch(limit=15))
+
+        # 6. ArXiv 论文监控 (新: UCO 标准源 + 事件总线广播)
+        if "arxiv_monitor" in source_refs:
+            from src.sources.arxiv_source import ArxivSource
+            events.extend(ArxivSource().fetch(limit=15))
             
         items_scraped = len(events)
         print(f"🛡️ [1.5] 海马体记忆介入，当前原始情报池大小: {items_scraped}。开始过滤...")

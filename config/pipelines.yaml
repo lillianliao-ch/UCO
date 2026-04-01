@@ -80,3 +80,23 @@ pipelines:
   - tr_toutiao
   - tr_wallstreetcn-hot
   - rss_producthunt
+- active: true
+  description: 每日抓取 GitHub Trending AI/LLM 项目，提取核心贡献者信息。数据同步广播至事件总线供猎头系统消费。
+  id: github_talent_radar
+  name: 🐙 GitHub AI 项目与人才雷达
+  prompt_template: filter_priority.md
+  publisher_refs:
+  - telegram_log
+  schedule_time: '05:15'
+  source_refs:
+  - github_trending
+- active: true
+  description: 每日拉取 ArXiv cs.AI/CL/CV/LG 最新论文，标记华人一作。数据同步广播至事件总线供猎头系统消费。
+  id: arxiv_paper_radar
+  name: 📚 ArXiv 学术论文与作者雷达
+  prompt_template: filter_priority.md
+  publisher_refs:
+  - telegram_log
+  schedule_time: '05:10'
+  source_refs:
+  - arxiv_monitor

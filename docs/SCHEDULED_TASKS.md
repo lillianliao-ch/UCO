@@ -51,6 +51,35 @@
 - **做啥用**: 根据昨晚及清晨捕获的所有离散事件，为 Agent 系统制定一整天的抓取、聊骚、猎聘调度计划表。
 
 ---
+---
+
+## 🔗 3. OPC 事件总线 (Event Bus)
+**归属**：全局共享基础设施 (`/Users/lillianliao/notion_rag/opc_event_bus.py`)
+**数据库**：`/Users/lillianliao/notion_rag/data/opc_event_bus.db`
+
+> [!NOTE] **架构说明（2026-04 Sprint 1 新增）**
+> 事件总线是连通 UCO (Layer 1) 和各业务 App (Layer 4) 的数据管道。
+> UCO 探针采集到数据后，在生成管线内容的同时，通过总线广播事件。
+> 猎头等业务 App 作为消费者独立订阅，互不干扰。
+
+### 已注册的事件类型
+| 事件类型 | 生产者 | 消费者 | 说明 |
+|---------|--------|--------|------|
+| `NEW_AI_TRENDING_REPO` | UCO `github_talent_radar` 管线 | 猎头 App（待接入） | GitHub 上 AI 相关热门项目 + 贡献者列表 |
+| `NEW_ARXIV_CHINESE_AUTHOR` | UCO `arxiv_paper_radar` 管线 | 猎头 App（待接入） | 华人一作的新论文信息 |
+
+### 已从猎头项目收编至 UCO 的探针
+| 探针 | 旧位置 (headhunter) | 新位置 (UCO) | UCO 管线 ID |
+|------|---------------------|-------------|-------------|
+| GitHub Trending 监控 | `github_trending_monitor.py` | `src/sources/github_trending_source.py` | `github_talent_radar` |
+| ArXiv 论文监控 | `arxiv_monitor.py` | `src/sources/arxiv_source.py` | `arxiv_paper_radar` |
+
+### 仍留在猎头项目的脚本（纯业务逻辑）
+- `daily_briefing.py` — 运营数据晨报（直接读取猎头 DB）
+- `daily_planner.py` — 每日工作计划
+- `gmail_reply_monitor.py` — 候选人邮件回复监控
+
+---
 
 ## 🛠️ 运维与调试操作指南
 
@@ -73,3 +102,11 @@ crontab -e
   可以输入：`tail -f /tmp/universal_orchestrator.log` 实时盯着它干活。
 - **猎头与监控组件日志**:
   绝大部分日志保存在 `personal-ai-headhunter/logs/` 目录下（如 `gmail_reply_monitor.log` 等）。
+- **事件总线调试**:
+  ```python
+  from opc_event_bus import EventBus
+  bus = EventBus()
+  print(bus.stats())        # 总线统计
+  print(bus.peek(limit=5))  # 查看最近 5 条事件
+  ```
+
