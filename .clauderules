@@ -1,0 +1,20 @@
+# Universal Content Orchestrator - Claude Rules
+# 借鉴 everything-claude-code 的 AI 工程约束标准
+
+## 1. 核心架构约束 (Core Architecture)
+- **Zero-Touch Dynamic Dispatch**: 禁止在 `main.py` 中硬编码任何业务逻辑或平台规则。所有的业务扩展必须通过向 `config/pipelines.yaml` 注册实现。
+- **Adapter 隔离模式**: 任何对外部服务（如 WeCom, DuckDuckGo, LLM APIs）的调用，必须将其封装在单独的类或函数中，并且**必须能够优雅地失败 (Fail gracefully)**。不允许外部 API 的超时引起主线 `EventLoop` 的崩溃。
+- **Contract-First**: 所有的跨模块数据传递，尤其是爬取到的原始数据，必须立即向下游传递前使用 `src/core/schemas.py` 中的 `Pydantic` 模型进行强类型校验（如 `RawContentEvent`）。
+
+## 2. 代码质量与容错 (Code Quality & Fault Tolerance)
+- **强制收尾 (Fail-Safe)**: 涉及 SQLite 状态更新的操作，必须使用 `try...finally` 块或 Context Manager，确保即使中间发生 Exception，状态（如 `STATUS: FAILED`）也能被终态写入。
+- **不可变性 (Immutability)**: 避免在流水线传递过程中原地修改（mutate）`Event` 对象，应产生新状态的 Copy。
+- **日志可观测性**: `Scraper` 不能只默默拉取数据，返回值必须是 `(content, stats_dict)` 格式，必须打印明确的 Funnel Metrics (漏洞转化漏斗)。
+
+## 3. 防幻觉与安全检查 (Security & Verification)
+- **禁止模拟数据**: 在进行真正的发送行为前，严格拉取当前有效的 API 格式，禁止大模型自行编造（Hallucinate） Payload。
+- **高危操作拦截**: 涉及到对 SQLite 库的 `DELETE` 或 `DROP`、对微信/小红书的远端写入操作，必须通过 GUI 发起，或使用前置提示请求授权。
+
+## 4. 前端交互 (Next.js Dashboard)
+- 组件应尽量小，推荐 200-400 行以内，最多不超过 800 行。
+- `TailwindCSS` 或现有样式必须复用已有的设计系统 token，严禁硬编码魔术颜色。

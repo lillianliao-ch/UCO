@@ -5,9 +5,12 @@ import os
 import subprocess
 import time
 import yaml
-
+import typing
+from crontab import CronTab
+import sqlite3
 from core.cdp_session_cloner import clone_session
 from core.playwright_engine import PlaywrightInterceptEngine
+from core.state_manager import EventStateManager
 
 app = FastAPI(title="Media Query Console API")
 
@@ -116,6 +119,27 @@ class PipelineEditRequest(BaseModel):
     prompt_template: str
     publisher_refs: list[str]
     active: bool
+    schedule_time: typing.Optional[str] = ""
+
+def sync_pipeline_cron(pipeline_id: str, active: bool, schedule_time: str):
+    """Sync pipeline scheduling natively to OS crontab"""
+    try:
+        cron = CronTab(user=True)
+        # Remove existing job for this pipeline based on exact comment tag
+        cron.remove_all(comment=f"uco_{pipeline_id}")
+        
+        # Add new job if active and a valid HH:MM schedule is provided
+        if active and schedule_time:
+            parts = schedule_time.split(":")
+            if len(parts) == 2:
+                hh, mm = parts[0], parts[1]
+                deploy_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "deploy_cron.sh")
+                job = cron.new(command=f"/bin/bash {deploy_script} {pipeline_id}", comment=f"uco_{pipeline_id}")
+                job.setall(mm, hh, '*', '*', '*')
+        
+        cron.write()
+    except Exception as e:
+        print(f"Failed to sync cron for {pipeline_id}: {e}")
 
 @app.get("/api/system/pipelines")
 def get_system_pipelines():
@@ -126,6 +150,21 @@ def get_system_pipelines():
         with open(config_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return {"status": "success", "data": data}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+class PipelineRunRequest(BaseModel):
+    pipeline_id: str
+
+@app.post("/api/system/pipelines/run")
+def run_pipeline_manual(req: PipelineRunRequest):
+    try:
+        import subprocess
+        log_path = "/tmp/pipeline_run.log"
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "deploy_cron.sh")
+        # Run deploy_cron.sh <pipeline_id>
+        subprocess.Popen(f"/bin/bash {script_path} {req.pipeline_id} > {log_path} 2>&1", shell=True)
+        return {"status": "success", "message": f"已成功将运行指令注入调度核心。执行日志捕获于: {log_path}"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -145,7 +184,11 @@ def update_full_pipeline(pipeline_id: str, req: PipelineEditRequest):
                 p["prompt_template"] = req.prompt_template
                 p["publisher_refs"] = req.publisher_refs
                 p["active"] = req.active
+                p["schedule_time"] = req.schedule_time
                 updated = True
+                
+                # Sync cron instantly
+                sync_pipeline_cron(pipeline_id, req.active, req.schedule_time)
                 break
                 
         if updated:
@@ -168,6 +211,9 @@ def toggle_pipeline(req: PipelineToggleRequest):
             if p.get("id") == req.id:
                 p["active"] = req.active
                 updated = True
+                
+                # Sync cron instantly with existing schedule
+                sync_pipeline_cron(req.id, req.active, p.get("schedule_time", ""))
                 break
                 
         if updated:
@@ -178,22 +224,84 @@ def toggle_pipeline(req: PipelineToggleRequest):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-class PipelineRunRequest(BaseModel):
-    pipeline_id: str
 
-@app.post("/api/system/pipelines/run")
-def run_pipeline_manual(req: PipelineRunRequest):
-    try:
-        # Instead of running everything, we can execute just one. 
-        # For simplicity, we just trigger main.py in the background for now since main.py already parses pipelines.yaml.
-        # Future improvement: modify main.py to accept arguments.
-        import subprocess
-        log_path = "/tmp/pipeline_run.log"
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "main.py")
-        subprocess.Popen(f"python3 {script_path} > {log_path} 2>&1", shell=True)
-        return {"status": "success", "message": f"已成功将运行指令注入系统挂载点。日志捕获于: {log_path}"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+
+class DraftUpdateRequest(BaseModel):
+    content_md: str
+    title: str
+
+@app.get("/api/drafts")
+def get_all_drafts():
+    sm = EventStateManager()
+    with sqlite3.connect(sm.db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.execute("SELECT * FROM content_drafts WHERE status='PENDING' ORDER BY generate_time DESC")
+        rows = cursor.fetchall()
+        drafts = [dict(row) for row in rows]
+    return {"status": "success", "data": drafts}
+
+@app.put("/api/drafts/{draft_id}")
+def update_draft(draft_id: str, req: DraftUpdateRequest):
+    sm = EventStateManager()
+    with sqlite3.connect(sm.db_path) as conn:
+        conn.execute("UPDATE content_drafts SET content_md=?, title=? WHERE draft_id=?", (req.content_md, req.title, draft_id))
+    return {"status": "success", "message": "Draft updated"}
+
+@app.post("/api/drafts/{draft_id}/publish")
+def publish_draft(draft_id: str):
+    sm = EventStateManager()
+    with sqlite3.connect(sm.db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.execute("SELECT * FROM content_drafts WHERE draft_id=?", (draft_id,))
+        draft = cursor.fetchone()
+        
+    if not draft:
+        return {"status": "error", "message": "Draft not found"}
+        
+    title, content = draft["title"], draft["content_md"]
+    poster_xhs, poster_wx = draft["poster_path_xhs"], draft["poster_path_wx"]
+    pipeline_id = draft["pipeline_id"]
+    
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "pipelines.yaml")
+    publishers = []
+    with open(config_path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+        for p in data.get("pipelines", []):
+            if p["id"] == pipeline_id:
+                publishers = p.get("publisher_refs", [])
+                break
+                
+    successes, errors = [], []
+    
+    if "xiaohongshu" in publishers:
+        from publishers.opencli_xhs_adapter import OpenCLIXiaohongshuPublisher
+        try:
+            OpenCLIXiaohongshuPublisher().push_draft(title, content, poster_xhs)
+            successes.append("xiaohongshu")
+        except Exception as e:
+            errors.append(f"xhs: {e}")
+            
+    if "wechat" in publishers:
+        from publishers.wechat_adapter import WeChatPublisher
+        try:
+            WeChatPublisher().push_draft(title, content, poster_wx)
+            successes.append("wechat")
+        except Exception as e:
+            errors.append(f"wechat: {e}")
+
+    if not errors:
+        with sqlite3.connect(sm.db_path) as conn:
+            conn.execute("UPDATE content_drafts SET status='PUBLISHED' WHERE draft_id=?", (draft_id,))
+        return {"status": "success", "message": f"Published to {','.join(successes)}"}
+    else:
+        return {"status": "error", "message": "; ".join(errors)}
+
+@app.post("/api/drafts/{draft_id}/discard")
+def discard_draft(draft_id: str):
+    sm = EventStateManager()
+    with sqlite3.connect(sm.db_path) as conn:
+        conn.execute("UPDATE content_drafts SET status='DISCARDED' WHERE draft_id=?", (draft_id,))
+    return {"status": "success", "message": "Draft discarded"}
 
 @app.get("/api/news/trend")
 def get_trend_news():

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import React from "react";
+import Link from "next/link";
 import { Database, Bell, LayoutList, CheckSquare, Settings, Play, Search, Info, LayoutTemplate, Palette } from "lucide-react";
 import TriggerModal from "@/components/TriggerModal";
 
@@ -30,16 +31,16 @@ export default function RootLayout({
 
           <nav className="flex flex-col w-full gap-2 relative">
             {[
-              { label: "数据源管理", icon: <Database size={24} />, active: true },
-              { label: "未读采集", icon: <Bell size={24} />, active: false },
-              { label: "私有 Timeline", icon: <LayoutList size={24} />, active: false },
-              { label: "审核与发布", icon: <CheckSquare size={24} />, active: false },
-              { label: "系统设置", icon: <Settings size={24} />, active: false },
+              { label: "数据源管理", icon: <Database size={24} />, href: "/" },
+              { label: "未读采集", icon: <Bell size={24} />, href: "#" },
+              { label: "私有 Timeline", icon: <LayoutList size={24} />, href: "#" },
+              { label: "审核与发布", icon: <CheckSquare size={24} />, href: "/drafts" },
+              { label: "系统设置", icon: <Settings size={24} />, href: "/settings" },
             ].map((item) => (
-              <div key={item.label} className={`flex items-center gap-4 w-fit rounded-full px-5 py-3 cursor-pointer transition-colors duration-200 ${item.active ? 'font-bold' : 'hover:bg-[var(--app-hover)]'}`}>
-                <div className={item.active ? 'text-black' : 'text-gray-700'}>{item.icon}</div>
+              <Link href={item.href} key={item.label} className={`flex items-center gap-4 w-fit rounded-full px-5 py-3 cursor-pointer transition-colors duration-200 hover:bg-[var(--app-hover)]`}>
+                <div className="text-gray-700">{item.icon}</div>
                 <span className="text-xl tracking-wide">{item.label}</span>
-              </div>
+              </Link>
             ))}
           </nav>
 

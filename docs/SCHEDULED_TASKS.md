@@ -5,20 +5,20 @@
 ---
 
 ## 🕒 1. 万物编排器 (Universal Content Orchestrator)
-**执行频率**: `0 8 * * *` (每天早晨 08:00 执行)
+**执行频率**: 在管线大盘 UI 中**细粒度动态化配置**
 **归属项目**: `universal_content_orchestrator`
-**执行脚本**: `/bin/bash /Users/lillianliao/notion_rag/universal_content_orchestrator/deploy_cron.sh` (会拉起 `main.py`)
+**执行机制**: 由 FastAPI 引擎搭载 `python-crontab` 直连操作系统内核调度。
 
-### 🧠 任务流转说明：
-1. **全域情报打捞 (08:00 ~ 08:02)**：系统根据 `config/channels.yaml` 中标记为 `active: true` 的数据源（默认走 `TrendRadar` 宏观热点源）自动抓取最新资讯。
-2. **Telegram 大盘预警**：立刻将当天捕获的所有原始情报组装成**【晨报情报池】**汇总信标，发送至您的 Telegram 端。
-3. **大模型筛选与重构 (08:02 ~ 08:05)**：唤醒 Qwen Engine。读取本地 `config/prompts/filter_priority.md` 挑选出最优的若干篇内容，并依照 `config/prompts/xhs_style_a_lilian.md` 中定义的 Lilian人设 重新编排撰写爆款文案。
-4. **生成配套海报**：调用 `PillowVisualEngine`，针对小红书(3:4比例)和微信(2.35:1) 生成携带“Lilian首发 / 甄选”角标的高清宣传图片。
-5. **分发至小红书与 Telegram草稿群**：直接自动化将内容带图推入小红书排期草稿，同步发送 Telegram 图文合并草稿让您在手机端审阅。
-6. **分发至微信草稿箱 (纯净去图版)**：为避开微信 UEditor 严厉防灰产审查，向微信草稿箱推送最纯粹的一版带有硅谷排版基线的极简纯文本。提示您后续去微信内手工放图。
+> [!WARNING] **配置范式迁移警告 (Phase 2 更新)**
+> 自 2026-04 起，万物编排器的定时任务**已全面图形化**。请打开 Web Dashboard > 「管线编排面板」，在目标管线的“精细化配置”中设置「每日自动发射时钟」。
+> 设定后系统会自动覆写您的 Mac `crontab -l`。**请勿再手动去 `crontab -e` 里面编写 `# uco_` 打头的野脚本，否则会被中枢抹除。**
 
-> [!TIP] **架构去黑盒化说明**
-> 万物编排器的底层逻辑已与 Python 死代码解耦。如需修改**执行渠道**，请直接编辑 `universal_content_orchestrator/config/channels.yaml`。如需修改**人设与生成话术**，请直接编辑 `config/prompts/` 目录下的 Markdown 文件。
+### 🧠 任务新式流转架构 (Bifurcated HitL Gateway)：
+1. **沙盒隔离触发**：不论是到达设定时钟，还是您在网页端按下【▶️ 立即运行】，都会以严格的沙盒参数拉起 `deploy_cron.sh <pipeline_id>`。
+2. **全域情报打捞与漏斗落库**：探针启动，并将原始数据、LLM脱水数据、最终成稿数量严格打入 `pipeline_run` 漏斗中以便监控。
+3. **红绿灯网关分发**：
+   - **绿灯直发 (Sync Notify)**: Telegram / 飞书工作流等通讯渠道直接免查收弹窗。
+   - **红灯拦截 (Async HitL Draft)**: 小红书 / 微信公众号等强宣发渠道**强行阻断**，数据带着渲染好的双比例海报落入底层的 `content_drafts` SQL 草稿池，系统进入挂机等待态。您可以在 UI 界面的「审核与发布」版图执行人肉审批发帖。
 
 ---
 

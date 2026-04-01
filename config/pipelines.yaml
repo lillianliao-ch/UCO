@@ -7,6 +7,7 @@ pipelines:
   publisher_refs:
   - xiaohongshu
   - telegram_log
+  schedule_time: 07:30
   source_refs:
   - trendradar
   - opencli_hackernews
@@ -27,6 +28,7 @@ pipelines:
   prompt_template: solopreneur_insight.md
   publisher_refs:
   - telegram_log
+  schedule_time: '12:30'
   source_refs:
   - producthunt_hunter
   - twitter_indie_hackers
@@ -37,6 +39,7 @@ pipelines:
   prompt_template: finance_hardcore_report.md
   publisher_refs:
   - telegram_log
+  schedule_time: 07:00
   source_refs:
   - sec_13f_filings
   - wsj_ai_finance
@@ -51,17 +54,18 @@ pipelines:
   - feishu_log
   source_refs:
   - live_footprint_source
-
 - active: true
   description: 专为数字猎头设计的顶级情报网，追踪大厂组织架构重组、高层变动、知名AI创企千万级融资。
+  filter_template: filter_priority_headhunter.md
   id: ai_industry_intel_monitor
   name: 🚀 深科技猎头专线 (人事/融资/M&A)
-  filter_template: filter_priority_headhunter.md
   prompt_template: ai_industry_intel_analysis.md
   publisher_refs:
-  - telegram_log
   - feishu_log
   - wecom_notification
+  - telegram_log
+  - feishu_webhook
+  schedule_time: ''
   source_refs:
   - tr_baidu
   - tr_weibo
@@ -73,3 +77,6 @@ pipelines:
   - rss_techcrunch
   - rss_wsj
   - rss_hackernews
+  - tr_toutiao
+  - tr_wallstreetcn-hot
+  - rss_producthunt

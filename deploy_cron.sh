@@ -20,8 +20,16 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PAT
 # 2. 定位工作区
 cd /Users/lillianliao/notion_rag/universal_content_orchestrator || exit 1
 
-# 3. 引爆主板脑区 (切换为正确的系统活跃 Python 3.12)
-/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 main.py >> $LOG_FILE 2>&1
+# 3. 接收管线参数，动态下发。如果不传参数，则 main.py 会执行全部默认管线
+PIPELINE_ID=$1
+echo "🎯 Target Pipeline ID Configured: ${PIPELINE_ID:-ALL_DEFAULT}" >> $LOG_FILE
+
+# 4. 引爆主板脑区 (切换为正确的系统活跃 Python 3.12)
+if [ -n "$PIPELINE_ID" ]; then
+    /Library/Frameworks/Python.framework/Versions/3.12/bin/python3 main.py "$PIPELINE_ID" >> $LOG_FILE 2>&1
+else
+    /Library/Frameworks/Python.framework/Versions/3.12/bin/python3 main.py >> $LOG_FILE 2>&1
+fi
 
 echo "🛑 Orchestrator Sequence Terminated at $(date)" >> $LOG_FILE
 echo "======================================================" >> $LOG_FILE

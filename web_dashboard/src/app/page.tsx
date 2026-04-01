@@ -1,14 +1,38 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { RefreshCw, GitMerge, FileText, Send, EyeOff, Settings2, X, Save, Settings, ExternalLink } from "lucide-react";
+import { RefreshCw, GitMerge, FileText, Send, EyeOff, Settings2, X, Save, Settings, ExternalLink, Play, Clock } from "lucide-react";
 
 export default function PipelinesPage() {
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  
   // Edit Modal State
   const [editingPipeline, setEditingPipeline] = useState<any | null>(null);
+  const [runningPipelines, setRunningPipelines] = useState<Record<string, boolean>>({});
+
+  const runPipeline = async (id: string) => {
+    if (runningPipelines[id]) return;
+    setRunningPipelines(prev => ({...prev, [id]: true}));
+    try {
+      const res = await fetch("http://localhost:8000/api/system/pipelines/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pipeline_id: id })
+      });
+      const result = await res.json();
+      if(result.status === "success") {
+        alert("🚀 任务已成功投递至执行队列: " + result.message);
+      } else {
+        alert("❌ 执行失败: " + result.message);
+      }
+    } catch (e: any) {
+      alert("❌ 通信失败: " + e.message);
+    } finally {
+      setRunningPipelines(prev => ({...prev, [id]: false}));
+    }
+  };
 
   const fetchPipelines = async () => {
     setLoading(true);
@@ -161,9 +185,22 @@ export default function PipelinesPage() {
                        {!p.active && <span className="text-xs text-gray-500 font-medium bg-gray-100 border border-[#dadce0] px-2 py-0.5 rounded-full">未激活</span>}
                      </h3>
                      <p className="text-gray-500 text-sm">{p.description}</p>
+                     <div className="flex items-center gap-1.5 mt-2 text-xs font-medium w-fit px-2 py-1 rounded-md border text-blue-700 bg-blue-50 border-blue-200">
+                       <Clock size={12} />
+                       {p.schedule_time ? `底层调度锁定: 每天 ${p.schedule_time}` : 'OS级别挂机: 未设 (手动模式)'}
+                     </div>
                   </div>
                   
                   <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => runPipeline(p.id)}
+                      disabled={runningPipelines[p.id]}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${runningPipelines[p.id] ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-transparent' : 'bg-[#0a66c2] text-white border border-transparent shadow-sm hover:bg-[#004182]'}`}
+                    >
+                      {runningPipelines[p.id] ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} fill="currentColor" />}
+                      立即执行
+                    </button>
+                    
                     <button 
                       onClick={() => setEditingPipeline(JSON.parse(JSON.stringify(p)))}
                       className="flex items-center justify-center gap-1.5 px-3 py-1.5 border border-[#dadce0] rounded-lg bg-white text-xs font-medium text-gray-700 hover:bg-[#f1f3f4] hover:text-[#0a66c2] hover:border-[#0a66c2] transition-all"
@@ -263,7 +300,7 @@ export default function PipelinesPage() {
              <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 bg-[#f8f9fa]">
                 
                 {/* 1. Name & Desc */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-5 rounded-xl border border-[#dadce0]">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-5 rounded-xl border border-[#dadce0]">
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">管线名称</label>
                     <input 
@@ -279,6 +316,15 @@ export default function PipelinesPage() {
                       type="text" 
                       value={editingPipeline.prompt_template}
                       onChange={e => setEditingPipeline({...editingPipeline, prompt_template: e.target.value})}
+                      className="border border-[#dadce0] rounded-lg px-3 py-2 font-mono text-sm text-[#0a66c2] focus:border-[#0a66c2] focus:ring-1 focus:ring-[#0a66c2] outline-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">每日自动发射时钟 (Schedule)</label>
+                    <input 
+                      type="time" 
+                      value={editingPipeline.schedule_time || ''}
+                      onChange={e => setEditingPipeline({...editingPipeline, schedule_time: e.target.value})}
                       className="border border-[#dadce0] rounded-lg px-3 py-2 font-mono text-sm text-[#0a66c2] focus:border-[#0a66c2] focus:ring-1 focus:ring-[#0a66c2] outline-none"
                     />
                   </div>

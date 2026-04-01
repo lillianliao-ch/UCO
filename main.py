@@ -25,13 +25,13 @@ def process_single_dynamic_event(event, brain, visual, pipe, state_manager):
     if len(title) > 22: title = title[:20] + "…"
     
     publishers = pipe.get("publisher_refs", [])
+    is_drafted = False
     
-    # 1. 如果配了 Telegram，优先单通道定点投递汇报 (Private Inbox)
+    # 1. 绿灯网关：如果配了 Telegram，立刻免审送达 (Sync Notify)
     if "telegram_log" in publishers or "telegram" in publishers:
-        print("📲 [Telegram] 执行私人终端定点送达...")
+        print("📲 [Telegram] 命中免审白名单，执行私人终端定点送达...")
         TelegramPublisher().push_draft(f"🎯 管线战报: {pipe['name']}", f"**{title}**\n\n{draft}\n\n🔗 来源: {event.url}", None)
         
-    # 1.5 企微与飞书多端齐发
     if "wecom_notification" in publishers:
         from src.publishers.wecom_adapter import WeComPublisher
         WeComPublisher().push_draft(f"🎯 管线战报: {pipe['name']}", f"**{title}**\n\n{draft}\n\n🔗 来源: {event.url}", None)
@@ -40,130 +40,114 @@ def process_single_dynamic_event(event, brain, visual, pipe, state_manager):
         from src.publishers.feishu_adapter import FeishuPublisher
         FeishuPublisher().push_draft(f"🎯 管线战报: {pipe['name']}", f"**{title}**\n\n{draft}\n\n🔗 来源: {event.url}", None)
 
-    # 2. 如果配了小红书/微信，触发 HitL (生成图片，存入草稿箱拦截待审)
+    # 2. 红灯网关：高危社交平台 (Xiaohongshu/WeChat) 强制拦截落入草稿箱 (Async HitL Draft)
     if "xiaohongshu" in publishers or "wechat" in publishers:
-        poster_path_xhs = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"poster_xhs_{event.id}.jpg")
-        poster_path_wx = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"poster_wx_{event.id}.jpg")
+        draft_id = f"draft_{event.id}_{int(time.time())}"
+        state_manager.save_draft(draft_id, pipe['id'], event, title, draft)
+        print(f"📥 [HitL 拦截] 高危长图文已切断直发！强制落入 SQL 草稿待审区: {draft_id}")
+        is_drafted = True
         
-        visual.generate_poster(title=title, subtitle=pipe['name'], badge="Lilian甄选", output_path=poster_path_xhs, mode="xhs")
-        visual.generate_poster(title=title, subtitle=pipe['name'], badge="Lilian甄选", output_path=poster_path_wx, mode="wechat")
+    # 对于免审通知渠道，我们需要标记其已发布，防止Telegram明天又弹一遍
+    if not is_drafted:
+        state_manager.mark_success(event, pipe['id'])
         
-        draft_dir = os.path.join(os.path.dirname(__file__), "data", "drafts")
-        os.makedirs(draft_dir, exist_ok=True)
-        
-        draft_id = f"{event.id}_{int(time.time())}"
-        draft_payload = {
-            "id": draft_id,
-            "raw_event_id": event.id,
-            "title": title,
-            "content_md": draft,
-            "poster_path_xhs": poster_path_xhs,
-            "poster_path_wx": poster_path_wx,
-            "status": "pending_review",
-            "pipeline_id": pipe['id'],
-            "generate_time": time.strftime("%Y-%m-%d %H:%M:%S")
-        }
-        
-        draft_file = os.path.join(draft_dir, f"{draft_id}.json")
-        with open(draft_file, "w", encoding="utf-8") as f:
-            json.dump(draft_payload, f, ensure_ascii=False, indent=2)
-            
-        print(f"📥 [HitL 拦截] 已生成发布级图文并落入审核池: {draft_file}")
-        
-    # 彻底告别盲目直发，标记为当前管线已处理
-    state_manager.mark_success(event, pipe['id'])
-    return {"title": title, "success": True}
+    return {"title": title, "success": True, "is_drafted": is_drafted}
 
 def run_dynamic_pipeline(pipe):
     print(f"\n==========================================================================")
     print(f"🚀 启动泛用型管线: 【{pipe['name']}】 ID:{pipe['id']}")
     print(f"==========================================================================")
     
-    events = []
-    source_refs = pipe.get("source_refs", [])
-    
-    print("📡 [1] 开始从管线注册的源头抽水汇聚...")
-    # 动态路由装载源头数据
-    # 1. TrendRadar (支持老的 'trendradar' 和细粒度 'tr_xxx')
-    tr_platforms = []
-    for src in source_refs:
-        if src.startswith("tr_"):
-            tr_platforms.append(src.replace("tr_", ""))
-            
-    if "trendradar" in source_refs or tr_platforms:
-        from src.sources.trendradar_source import TrendRadarSource
-        kwargs = {"limit": 15}
-        if tr_platforms:
-            kwargs["platforms"] = tr_platforms
-        events.extend(TrendRadarSource().fetch(**kwargs))
-
-    # 2. OpenCLI HackerNews (向下兼容)
-    if "opencli_hackernews" in source_refs or "rss_hacker_news" in source_refs:
-        from src.sources.opencli_hackernews import OpenCLIHackerNewsSource
-        events.extend(OpenCLIHackerNewsSource().fetch(limit=15))
-
-    # 3. 简历/人才数据库 (向下兼容)
-    if "maimai_updates" in source_refs or "linkedin_monitor" in source_refs:
-        from src.sources.db_talent_source import DBTalentSource
-        events.extend(DBTalentSource().fetch(limit=10))
-
-    # 4. 细粒度 RSS 与旧 RSS 兼容池
-    rss_map_active = {}
-    # Legacy Blocks
-    if "producthunt_hunter" in source_refs:
-        rss_map_active["ProductHunt"] = "https://ph-rss.stephenou.com/"
-        rss_map_active["Show_HackerNews"] = "https://hnrss.org/show"
-    if "wsj_ai_finance" in source_refs or "sec_13f_filings" in source_refs:
-        rss_map_active["WSJ_Tech_Finance"] = "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml"
-        rss_map_active["TechCrunch_AI"] = "https://techcrunch.com/category/artificial-intelligence/feed/"
-    if "chinese_tech_media" in source_refs:
-        rss_map_active["36Kr"] = "https://36kr.com/feed"
-        rss_map_active["Jiqizhixin"] = "https://www.jiqizhixin.com/rss"
-        rss_map_active["GeekPark"] = "https://www.geekpark.net/rss"
-        rss_map_active["TMTPost"] = "https://www.tmtpost.com/rss"
-        
-    # Granular Blocks
-    if "rss_36kr" in source_refs: rss_map_active["36Kr"] = "https://36kr.com/feed"
-    if "rss_tmtpost" in source_refs: rss_map_active["TMTPost"] = "https://www.tmtpost.com/rss"
-    if "rss_jiqizhixin" in source_refs: rss_map_active["Jiqizhixin"] = "https://www.jiqizhixin.com/rss"
-    if "rss_geekpark" in source_refs: rss_map_active["GeekPark"] = "https://www.geekpark.net/rss"
-    if "rss_techcrunch" in source_refs: rss_map_active["TechCrunch_AI"] = "https://techcrunch.com/category/artificial-intelligence/feed/"
-    if "rss_wsj" in source_refs: rss_map_active["WSJ_Tech_Finance"] = "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml"
-    if "rss_hackernews" in source_refs: rss_map_active["HackerNews"] = "https://hnrss.org/newest?q=AI"
-    if "rss_producthunt" in source_refs: rss_map_active["ProductHunt"] = "https://ph-rss.stephenou.com/"
-    
-    if rss_map_active:
-        from src.sources.legacy_rss import LegacyRSSSource
-        rss = LegacyRSSSource(rss_map_active)
-        events.extend(rss.fetch(limit=15))
-    if "live_footprint_source" in source_refs:
-        from src.sources.live_footprint_source import LiveFootprintSource
-        events.extend(LiveFootprintSource().fetch(limit=3))
-        
     state_manager = EventStateManager()
-    print(f"🛡️ [1.5] 海马体记忆介入，当前原始情报池大小: {len(events)}。开始过滤...")
+    run_id = f"run_{pipe['id']}_{int(time.time())}"
+    state_manager.create_pipeline_run(run_id, pipe['id'])
     
-    new_events = [e for e in events if not state_manager.is_processed(e, pipe['id'])]
-    print(f"🗂️ 过滤老旧去重后，剩余有效情报 {len(new_events)} 篇进入决胜轮。")
+    items_scraped = 0
+    items_passed_llm = 0
+    drafts_generated = 0
+    run_status = "SUCCESS"
     
-    if not new_events:
-        print("📭 暂无待处理全新爆点情报。管线挂起休眠。")
-        return
+    try:
+        events = []
+        source_refs = pipe.get("source_refs", [])
         
-    brain = QwenEngine()
-    visual = PillowVisualEngine()
-    
-    print("\n🧠 [2] 激活主编鉴赏淘汰赛...")
-    # 由于生成成本高，由模型决定最终执行力最大的前N篇文章
-    filter_tpl = pipe.get("filter_template", "filter_priority.md")
-    top_events = brain.select_top_articles(new_events, limit=3, filter_template=filter_tpl)
-    
-    print(f"\n🚀 [3] 锁定 {len(top_events)} 篇顶级锚点，开始逐点击破与分发：")
-    for i, event in enumerate(top_events, 1):
-        print(f"\n[任务 {i}/{len(top_events)}] ==========================")
-        process_single_dynamic_event(event, brain, visual, pipe, state_manager)
+        print("📡 [1] 开始从管线注册的源头抽水汇聚...")
+        # 动态路由装载源头数据
+        # 1. TrendRadar
+        tr_platforms = [src.replace("tr_", "") for src in source_refs if src.startswith("tr_")]
+        if "trendradar" in source_refs or tr_platforms:
+            from src.sources.trendradar_source import TrendRadarSource
+            kwargs = {"limit": 15}
+            if tr_platforms: kwargs["platforms"] = tr_platforms
+            events.extend(TrendRadarSource().fetch(**kwargs))
+
+        # 2. OpenCLI HackerNews
+        if "opencli_hackernews" in source_refs or "rss_hacker_news" in source_refs:
+            from src.sources.opencli_hackernews import OpenCLIHackerNewsSource
+            events.extend(OpenCLIHackerNewsSource().fetch(limit=15))
+
+        # 3. DB Talent Source
+        if "maimai_updates" in source_refs or "linkedin_monitor" in source_refs:
+            from src.sources.db_talent_source import DBTalentSource
+            events.extend(DBTalentSource().fetch(limit=10))
+
+        # 4. Legacy RSS
+        rss_map_active = {}
+        if "producthunt_hunter" in source_refs:
+            rss_map_active["ProductHunt"] = "https://ph-rss.stephenou.com/"
+            rss_map_active["Show_HackerNews"] = "https://hnrss.org/show"
+        if "wsj_ai_finance" in source_refs or "sec_13f_filings" in source_refs:
+            rss_map_active["WSJ_Tech_Finance"] = "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml"
+            rss_map_active["TechCrunch_AI"] = "https://techcrunch.com/category/artificial-intelligence/feed/"
+        if "chinese_tech_media" in source_refs:
+            rss_map_active["36Kr"] = "https://36kr.com/feed"
+            rss_map_active["Jiqizhixin"] = "https://www.jiqizhixin.com/rss"
         
-    print(f"\n✅ 管线 [{pipe['name']}] 单圈战役闭环完结！")
+        if "rss_36kr" in source_refs: rss_map_active["36Kr"] = "https://36kr.com/feed"
+        if "rss_hackernews" in source_refs: rss_map_active["HackerNews"] = "https://hnrss.org/newest?q=AI"
+        
+        if rss_map_active:
+            from src.sources.legacy_rss import LegacyRSSSource
+            events.extend(LegacyRSSSource(rss_map_active).fetch(limit=15))
+            
+        if "live_footprint_source" in source_refs:
+            from src.sources.live_footprint_source import LiveFootprintSource
+            events.extend(LiveFootprintSource().fetch(limit=3))
+            
+        items_scraped = len(events)
+        print(f"🛡️ [1.5] 海马体记忆介入，当前原始情报池大小: {items_scraped}。开始过滤...")
+        
+        new_events = [e for e in events if not state_manager.is_processed(e, pipe['id'])]
+        print(f"🗂️ 过滤老旧去重后，剩余有效情报 {len(new_events)} 篇进入决胜轮。")
+        
+        if not new_events:
+            print("📭 暂无待处理全新爆点情报。管线挂起休眠。")
+            return
+            
+        brain = QwenEngine()
+        visual = PillowVisualEngine() # Pre-load just in case
+        
+        print("\n🧠 [2] 激活主编鉴赏淘汰赛...")
+        filter_tpl = pipe.get("filter_template", "filter_priority.md")
+        top_events = brain.select_top_articles(new_events, limit=3, filter_template=filter_tpl)
+        items_passed_llm = len(top_events)
+        
+        print(f"\n🚀 [3] 锁定 {items_passed_llm} 篇顶级锚点，开始逐点击破与分发：")
+        for i, event in enumerate(top_events, 1):
+            print(f"\n[任务 {i}/{len(top_events)}] ==========================")
+            res = process_single_dynamic_event(event, brain, visual, pipe, state_manager)
+            if res.get("is_drafted"):
+                drafts_generated += 1
+                
+        print(f"\n✅ 管线 [{pipe['name']}] 单圈战役闭环完结！")
+
+    except Exception as e:
+        run_status = f"FAILED: {str(e)}"
+        print(f"❌ 管线严重崩溃 (已记录至数据库): {run_status}")
+        raise e
+    finally:
+        # Guarantee funnel metrics are saved to the SQLite run tracking table
+        state_manager.update_pipeline_run(run_id, items_scraped, items_passed_llm, drafts_generated, run_status)
 
 def main():
     print("==========================================================================")
