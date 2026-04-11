@@ -5,11 +5,12 @@ import { Check, Trash2, Edit3, Image as ImageIcon, Send } from "lucide-react";
 interface Draft {
   draft_id: string; // from SQLite
   title: string;
-  content_md: string;
+  markdown_body: string;
   poster_path_xhs: string;
   poster_path_wx: string;
+  video_path?: string;
   pipeline_id: string;
-  generate_time: string;
+  created_at: string;
 }
 
 export default function DraftsPage() {
@@ -40,7 +41,7 @@ export default function DraftsPage() {
 
   useEffect(() => {
     if (selectedDraft) {
-      setEditorContent(selectedDraft.content_md);
+      setEditorContent(selectedDraft.markdown_body);
       setEditorTitle(selectedDraft.title);
     }
   }, [selectedId, selectedDraft]);
@@ -52,7 +53,7 @@ export default function DraftsPage() {
       await fetch(`http://localhost:8000/api/drafts/${selectedId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editorTitle, content_md: editorContent })
+        body: JSON.stringify({ title: editorTitle, markdown_body: editorContent })
       });
     } catch (e) {
       console.error(e);
@@ -102,6 +103,14 @@ export default function DraftsPage() {
           <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full font-medium">{drafts.length}</span>
         </div>
         
+        <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 flex flex-col gap-2 text-xs shrink-0">
+          <div className="font-bold text-blue-800">💡 跨边界推送环境指南</div>
+          <div className="text-blue-700">推送至小红书前需确保调试环境开启，请复制并在终端执行：</div>
+          <div className="bg-white border border-blue-200 rounded p-2 overflow-x-auto whitespace-nowrap text-blue-900 font-mono text-[10px] select-all">
+            /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9224 --user-data-dir="$HOME/chrome-orchestrator-profile"
+          </div>
+        </div>
+        
         <div className="flex-1 overflow-y-auto">
           {drafts.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-gray-400 h-64 text-sm">
@@ -121,7 +130,7 @@ export default function DraftsPage() {
                   </h3>
                   <div className="flex items-center justify-between text-xs mt-2">
                     <span className="text-gray-500 font-medium bg-gray-100 px-1.5 py-0.5 rounded">{d.pipeline_id}</span>
-                    <span className="text-gray-400">{d.generate_time.split(" ")[1]}</span>
+                    <span className="text-gray-400">{d.created_at ? d.created_at.split("T")[1]?.substring(0, 8) : "未知时间"}</span>
                   </div>
                 </div>
               ))}
@@ -188,16 +197,40 @@ export default function DraftsPage() {
                       <span className="text-blue-500 text-xs mt-1 block font-medium cursor-pointer">展开全文</span>
                     </div>
 
-                    {/* Fake Poster Image Block (Visualizer) */}
+                    {/* Fake Poster Image Block or Video Block (Visualizer) */}
                     <div className="mt-3 px-3">
-                       <div className="w-full h-48 bg-gray-100 rounded flex flex-col items-center justify-center border border-gray-200 overflow-hidden relative">
-                         <div className="absolute inset-0 bg-blue-50/50 mix-blend-multiply pointer-events-none"></div>
-                         <ImageIcon size={32} className="text-gray-300 mb-2" />
-                         <span className="text-xs text-gray-400 font-mono text-center px-4">
-                            系统封面占位图<br/>
-                            {selectedDraft.poster_path_xhs && "✅ XHS Cover Built"}<br/>
-                            {selectedDraft.poster_path_wx && "✅ WX Cover Built"}
-                         </span>
+                       <div className="w-full relative shadow-sm rounded overflow-hidden border border-gray-100 bg-gray-50 flex flex-col items-center justify-center min-h-[160px]">
+                         {selectedDraft.video_path ? (
+                           <>
+                             <video 
+                               src={`http://localhost:8000${selectedDraft.video_path}`} 
+                               controls
+                               className="w-full h-auto object-cover block bg-black"
+                             />
+                             <div className="w-full p-2 bg-gray-100 border-t border-gray-200">
+                               <a 
+                                 href={`http://localhost:8000${selectedDraft.video_path}`} 
+                                 target="_blank"
+                                 download={`video_${selectedDraft.draft_id}.mp4`}
+                                 className="flex w-full items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded transition-colors no-underline cursor-pointer"
+                               >
+                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                 一键下载视频 (Download MP4)
+                               </a>
+                             </div>
+                           </>
+                         ) : selectedDraft.poster_path_xhs || selectedDraft.poster_path_wx ? (
+                           <img 
+                             src={`http://localhost:8000${selectedDraft.poster_path_xhs || selectedDraft.poster_path_wx}`} 
+                             className="w-full h-auto object-cover block"
+                             alt="Generated Visual Poster" 
+                           />
+                         ) : (
+                           <div className="flex flex-col items-center justify-center p-8 text-gray-400">
+                             <ImageIcon size={32} className="opacity-50 mb-2" />
+                             <span className="text-xs font-mono">无媒体 / No Media</span>
+                           </div>
+                         )}
                        </div>
                     </div>
                   </div>

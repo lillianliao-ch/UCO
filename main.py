@@ -13,7 +13,60 @@ from src.publishers.telegram_adapter import TelegramPublisher
 from src.publishers.wechat_adapter import WeChatPublisher
 from src.core.state_manager import EventStateManager
 
-def process_single_dynamic_event(event, brain, visual, pipe, state_manager):
+def _load_video_engine(pipe):
+    """Load the configured video engine from config/video_engines.yaml."""
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "video_engines.yaml")
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            ve_config = yaml.safe_load(f)
+    except Exception as e:
+        print(f"⚠️ 无法读取视频引擎配置: {e}")
+        return None, {}
+
+    # Pipeline-level override or global default
+    video_cfg = pipe.get("video_config", {})
+    engine_name = video_cfg.get("engine", ve_config.get("active_engine", "ffmpeg_local"))
+    engine_spec = ve_config.get("engines", {}).get(engine_name, {})
+
+    # Currently only ffmpeg_local is implemented
+    if engine_name == "ffmpeg_local":
+        from src.core.video_engine.ffmpeg_engine import FFmpegVideoEngine
+        engine = FFmpegVideoEngine()
+    else:
+        print(f"⚠️ 未实现的视频引擎: {engine_name}，回退到 ffmpeg_local")
+        from src.core.video_engine.ffmpeg_engine import FFmpegVideoEngine
+        engine = FFmpegVideoEngine()
+
+    # Merge config: pipeline video_config > engine defaults > hardcoded defaults
+    merged = {
+        "tts": video_cfg.get("tts", engine_spec.get("default_tts", "edge_tts")),
+        "voice": video_cfg.get("voice", engine_spec.get("default_voice", "zh-CN-XiaoxiaoNeural")),
+        "resolution": video_cfg.get("resolution", engine_spec.get("default_resolution", [1080, 1920])),
+    }
+    return engine, merged
+
+
+def _parse_video_script(draft_text: str) -> dict:
+    """Parse LLM output as a structured video script JSON."""
+    # Extract JSON from possible markdown code fences
+    import re
+    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)```', draft_text)
+    if json_match:
+        json_str = json_match.group(1).strip()
+    else:
+        json_str = draft_text.strip()
+
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        # Fallback: treat entire draft as a single narration segment
+        return {
+            "title_card": "AI 情报速递",
+            "segments": [{"text": draft_text[:300], "visual_text": "今日要闻"}]
+        }
+
+
+def process_single_dynamic_event(event, run_id, brain, visual, pipe, state_manager):
     # 动态挂载专属人设 (Prompt)
     draft = brain.synthesize_with_prompt(event, pipe.get("prompt_template", "xhs_style_a_lilian.md"))
     
@@ -28,28 +81,155 @@ def process_single_dynamic_event(event, brain, visual, pipe, state_manager):
     is_drafted = False
     
     # 1. 绿灯网关：如果配了 Telegram，立刻免审送达 (Sync Notify)
+    channel_status = {}
+    
     if "telegram_log" in publishers or "telegram" in publishers:
         print("📲 [Telegram] 命中免审白名单，执行私人终端定点送达...")
-        TelegramPublisher().push_draft(f"🎯 管线战报: {pipe['name']}", f"**{title}**\n\n{draft}\n\n🔗 来源: {event.url}", None)
+        try:
+            TelegramPublisher().push_draft(f"🎯 管线战报: {pipe['name']}", f"**{title}**\n\n{draft}\n\n🔗 来源: {event.url}", None)
+            channel_status["telegram"] = {"status": "success"}
+        except Exception as e:
+            print(f"❌ [Telegram] 推送失败: {e}")
+            channel_status["telegram"] = {"status": "error", "message": str(e)}
         
     if "wecom_notification" in publishers:
         from src.publishers.wecom_adapter import WeComPublisher
-        WeComPublisher().push_draft(f"🎯 管线战报: {pipe['name']}", f"**{title}**\n\n{draft}\n\n🔗 来源: {event.url}", None)
+        try:
+            WeComPublisher().push_draft(f"🎯 管线战报: {pipe['name']}", f"**{title}**\n\n{draft}\n\n🔗 来源: {event.url}", None)
+            channel_status["wecom"] = {"status": "success"}
+        except Exception as e:
+            print(f"❌ [WeCom] 推送失败: {e}")
+            channel_status["wecom"] = {"status": "error", "message": str(e)}
         
     if "feishu_log" in publishers:
         from src.publishers.feishu_adapter import FeishuPublisher
-        FeishuPublisher().push_draft(f"🎯 管线战报: {pipe['name']}", f"**{title}**\n\n{draft}\n\n🔗 来源: {event.url}", None)
+        try:
+            FeishuPublisher().push_draft(f"🎯 管线战报: {pipe['name']}", f"**{title}**\n\n{draft}\n\n🔗 来源: {event.url}", None)
+            channel_status["feishu"] = {"status": "success"}
+        except Exception as e:
+            print(f"❌ [Feishu] 推送失败: {e}")
+            channel_status["feishu"] = {"status": "error", "message": str(e)}
 
-    # 2. 红灯网关：高危社交平台 (Xiaohongshu/WeChat) 强制拦截落入草稿箱 (Async HitL Draft)
+    # 2. 视频渲染网关：如果配了 video_draft，触发视频引擎生成 MP4
+    if "video_draft" in publishers:
+        draft_id = f"draft_{event.id}_{int(time.time())}"
+        videos_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "videos")
+        os.makedirs(videos_dir, exist_ok=True)
+
+        try:
+            from src.core.video_engine.base_engine import VideoRenderRequest, ScriptSegment
+
+            engine, vcfg = _load_video_engine(pipe)
+            if engine is None:
+                raise RuntimeError("Video engine load failed")
+
+            # Parse the LLM output as a structured video script
+            script_data = _parse_video_script(draft)
+            title_card_text = script_data.get("title_card", title)
+            segments_raw = script_data.get("segments", [])
+
+            if not segments_raw:
+                segments_raw = [{"text": draft[:300], "visual_text": "今日要闻"}]
+
+            script_segments = [
+                ScriptSegment(
+                    text=seg.get("text", ""),
+                    visual_text=seg.get("visual_text", None),
+                )
+                for seg in segments_raw
+            ]
+
+            output_path = os.path.join(videos_dir, f"{draft_id}.mp4")
+            resolution = tuple(vcfg.get("resolution", [1080, 1920]))
+
+            render_request = VideoRenderRequest(
+                title=title_card_text,
+                script_segments=script_segments,
+                output_path=output_path,
+                resolution=resolution,
+                tts_provider=vcfg.get("tts", "edge_tts"),
+                tts_voice=vcfg.get("voice", "zh-CN-XiaoxiaoNeural"),
+                badge_text=pipe.get("name", ""),
+                subtitle_text=f"来源: {event.source_channel}",
+            )
+
+            result = engine.render(render_request)
+
+            if result.success:
+                video_rel_path = f"/videos/{draft_id}.mp4"
+                state_manager.save_draft(
+                    draft_id, pipe['id'], event, title, draft,
+                    poster_xhs=None, poster_wx=None, video_path=video_rel_path
+                )
+                channel_status["video_draft"] = {
+                    "status": "draft_saved",
+                    "video_path": video_rel_path,
+                    "duration": f"{result.duration_seconds:.1f}s",
+                    "segments": result.segments_rendered,
+                }
+                is_drafted = True
+                print(f"📥 [Video Draft] 短视频已生成并落入草稿待审区: {draft_id} ({result.duration_seconds:.1f}s)")
+            else:
+                channel_status["video_draft"] = {"status": "error", "message": result.error_message}
+                print(f"❌ [Video Draft] 渲染失败: {result.error_message}")
+
+        except Exception as e:
+            print(f"❌ [Video Draft] 视频生成管线异常: {e}")
+            import traceback
+            traceback.print_exc()
+            channel_status["video_draft"] = {"status": "error", "message": str(e)}
+
+    # 3. 红灯网关：高危社交平台 (Xiaohongshu/WeChat) 强制拦截落入草稿箱 (Async HitL Draft)
     if "xiaohongshu" in publishers or "wechat" in publishers:
         draft_id = f"draft_{event.id}_{int(time.time())}"
-        state_manager.save_draft(draft_id, pipe['id'], event, title, draft)
-        print(f"📥 [HitL 拦截] 高危长图文已切断直发！强制落入 SQL 草稿待审区: {draft_id}")
-        is_drafted = True
         
+        # Draw dynamic posters via the Pillow engine
+        from src.core.visual_engine import PillowVisualEngine
+        visual_inst = PillowVisualEngine()
+        assets_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "assets")
+        os.makedirs(assets_dir, exist_ok=True)
+        
+        poster_xhs, poster_wx = None, None
+        badge = pipe["name"]
+        
+        try:
+            if "xiaohongshu" in publishers:
+                p = os.path.join(assets_dir, f"{draft_id}_xhs.jpg")
+                visual_inst.generate_poster(title, "全域管线新报 | Universal Content Orchestrator", badge, p, mode="xhs")
+                poster_xhs = f"/assets/{draft_id}_xhs.jpg"
+                channel_status["xiaohongshu"] = {"status": "draft_saved", "notice": "强制落本地草稿待审"}
+                
+            if "wechat" in publishers:
+                p = os.path.join(assets_dir, f"{draft_id}_wx.jpg")
+                visual_inst.generate_poster(title, "全域管线新报 | Universal Content Orchestrator", badge, p, mode="wechat")
+                poster_wx = f"/assets/{draft_id}_wx.jpg"
+                channel_status["wechat"] = {"status": "draft_saved", "notice": "强制落本地草稿待审"}
+                
+            state_manager.save_draft(draft_id, pipe['id'], event, title, draft, poster_xhs, poster_wx)
+            print(f"📥 [HitL 拦截] 高危长图文已切断直发！强制落入 SQL 草稿待审区: {draft_id}")
+            is_drafted = True
+        except Exception as e:
+            print(f"❌ [HitL 拦截] 生成长图文或保存草稿失败: {e}")
+            if "xiaohongshu" in publishers:
+                channel_status["xiaohongshu"] = {"status": "error", "message": f"Poster generation/db error: {e}"}
+            if "wechat" in publishers:
+                channel_status["wechat"] = {"status": "error", "message": f"Poster generation/db error: {e}"}
+
     # 对于免审通知渠道，我们需要标记其已发布，防止Telegram明天又弹一遍
     if not is_drafted:
         state_manager.mark_success(event, pipe['id'])
+        
+    # 保存执行制品记录
+    artifact_id = f"art_{event.id}_{int(time.time())}"
+    state_manager.save_run_artifact(
+        artifact_id, 
+        run_id, 
+        pipe['id'], 
+        event.url, 
+        title, 
+        draft, 
+        json.dumps(channel_status, ensure_ascii=False)
+    )
         
     return {"title": title, "success": True, "is_drafted": is_drafted}
 
@@ -123,7 +303,21 @@ def run_dynamic_pipeline(pipe):
         if "arxiv_monitor" in source_refs:
             from src.sources.arxiv_source import ArxivSource
             events.extend(ArxivSource().fetch(limit=15))
-            
+
+        # 7. YouTube AI技术视频监控 (新: Agent-Reach集成)
+        if "youtube_ai_trends" in source_refs:
+            from src.sources.youtube_source import YouTubeSource
+            youtube = YouTubeSource(
+                search_queries=['LLM tutorial', 'AI agent development', 'RAG implementation']
+            )
+            events.extend(youtube.fetch(limit=3))
+
+        # 8. V2EX中文技术社区监控 (新: Agent-Reach集成)
+        if "v2ex_ai_discussions" in source_refs:
+            from src.sources.v2ex_source import V2EXSource
+            v2ex = V2EXSource(node_ids=['678', '1135'])  # ML 和 OpenAI 节点
+            events.extend(v2ex.fetch(limit=5))
+
         items_scraped = len(events)
         print(f"🛡️ [1.5] 海马体记忆介入，当前原始情报池大小: {items_scraped}。开始过滤...")
         
@@ -145,7 +339,7 @@ def run_dynamic_pipeline(pipe):
         print(f"\n🚀 [3] 锁定 {items_passed_llm} 篇顶级锚点，开始逐点击破与分发：")
         for i, event in enumerate(top_events, 1):
             print(f"\n[任务 {i}/{len(top_events)}] ==========================")
-            res = process_single_dynamic_event(event, brain, visual, pipe, state_manager)
+            res = process_single_dynamic_event(event, run_id, brain, visual, pipe, state_manager)
             if res.get("is_drafted"):
                 drafts_generated += 1
                 

@@ -5,3 +5,11 @@ python-dotenv>=1.0.0
 feedparser>=6.0.10
 SQLAlchemy>=2.0.0
 playwright>=1.40.0
+PyYAML>=6.0.0
+edge-tts>=6.1.0
+gTTS>=2.5.0
+ffmpeg-python>=0.2.0
+
+# 新增数据源依赖
+yt-dlp>=2023.0.0  # YouTube数据源
+# rdt-cli需要通过pipx安装: pipx install rdt-cli  # Reddit数据源

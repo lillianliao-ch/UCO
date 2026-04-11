@@ -1,0 +1,46 @@
+# ==============================================================================
+# Video Engine Configuration — 视频引擎总控
+# ==============================================================================
+# Switch active_engine to swap the rendering backend.
+# New engines: add a class entry, implement BaseVideoEngine, done.
+# ==============================================================================
+
+active_engine: "ffmpeg_local"
+
+engines:
+  ffmpeg_local:
+    class: "src.core.video_engine.ffmpeg_engine.FFmpegVideoEngine"
+    default_tts: "edge_tts"
+    default_voice: "zh-CN-XiaoxiaoNeural"
+    default_resolution: [1080, 1920]  # 9:16 vertical (Douyin/TikTok/Shorts)
+
+  # Future engines — just uncomment and set active_engine above:
+  #
+  # remotion_cloud:
+  #   class: "src.core.video_engine.remotion_engine.RemotionEngine"
+  #   api_endpoint: "https://..."
+  #   api_key_env: "REMOTION_API_KEY"
+  #
+  # revideo_local:
+  #   class: "src.core.video_engine.revideo_engine.RevideoEngine"
+  #   node_binary: "/usr/local/bin/node"
+  #
+  # moviepy_engine:
+  #   class: "src.core.video_engine.moviepy_engine.MoviePyVideoEngine"
+
+# Available TTS providers (shared across all engines):
+#   - edge_tts    : Microsoft Edge TTS (free, high quality, Chinese/English)
+#   - gtts        : Google Translate TTS (free, basic quality, fallback)
+#   - cosyvoice   : Alibaba CosyVoice (voice cloning with your own voice!)
+#                   Requires: DASHSCOPE_API_KEY + reference_audio in pipeline config
+#   - elevenlabs  : ElevenLabs (paid, premium quality) — not yet implemented
+#   - openai_tts  : OpenAI TTS (paid, premium quality) — not yet implemented
+
+# Available Edge TTS voices:
+#   Chinese:
+#     - zh-CN-XiaoxiaoNeural  (female, sweet, natural)
+#     - zh-CN-YunxiNeural     (male, steady, mature)
+#     - zh-CN-YunjianNeural   (male, authoritative)
+#   English:
+#     - en-US-JennyNeural     (female)
+#     - en-US-GuyNeural       (male)

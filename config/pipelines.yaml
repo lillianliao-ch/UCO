@@ -11,6 +11,20 @@ pipelines:
   source_refs:
   - trendradar
   - opencli_hackernews
+  - tr_baidu
+  - tr_weibo
+  - tr_bilibili-hot-search
+  - tr_wallstreetcn-hot
+  - tr_toutiao
+  - tr_zhihu
+  - rss_36kr
+  - rss_tmtpost
+  - rss_jiqizhixin
+  - rss_geekpark
+  - rss_techcrunch
+  - rss_wsj
+  - rss_hackernews
+  - rss_producthunt
 - active: true
   description: 专门用于监听科研大牛、大厂技术骨干的动向，并格式化为背调卡片供猎头端使用。
   id: ai_talent_tracking
@@ -64,7 +78,6 @@ pipelines:
   - feishu_log
   - wecom_notification
   - telegram_log
-  - feishu_webhook
   schedule_time: ''
   source_refs:
   - tr_baidu
@@ -87,7 +100,7 @@ pipelines:
   prompt_template: filter_priority.md
   publisher_refs:
   - telegram_log
-  schedule_time: '05:15'
+  schedule_time: 05:15
   source_refs:
   - github_trending
 - active: true
@@ -97,6 +110,38 @@ pipelines:
   prompt_template: filter_priority.md
   publisher_refs:
   - telegram_log
-  schedule_time: '05:10'
+  schedule_time: 05:10
   source_refs:
   - arxiv_monitor
+- active: true
+  description: 把 AI 行业头条自动变成 60 秒 TikTok/抖音风格短视频。使用可插拔视频引擎（当前 FFmpeg）和 Edge TTS 中文配音。
+  id: ai_news_video_daily
+  name: 🎬 AI 行业日报短视频
+  prompt_template: video_script_lilian.md
+  publisher_refs:
+  - video_draft
+  - telegram_log
+  schedule_time: 08:00
+  source_refs:
+  - trendradar
+  - opencli_hackernews
+  - rss_36kr
+  - rss_hackernews
+  video_config:
+    engine: ffmpeg_local
+    resolution:
+    - 1080
+    - 1920
+    tts: edge_tts
+    voice: zh-CN-XiaoxiaoNeural
+- active: true
+  description: 每日监控YouTube AI教程和V2EX中文AI社区讨论，发现技术趋势和人才技能要求。为AI猎头提供技术情报和候选人技能评估参考。
+  id: ai_tech_trends_monitor
+  name: 🎓 AI技术趋势监控（YouTube+V2EX）
+  prompt_template: tech_trends_summary.md
+  publisher_refs:
+  - telegram_log
+  schedule_time: 09:00
+  source_refs:
+  - youtube_ai_trends
+  - v2ex_ai_discussions

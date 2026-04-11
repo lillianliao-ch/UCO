@@ -38,6 +38,35 @@
 *   **状态强一致性**：在底层给每一条抓取回来的原始新闻计算出独一无二的 MD5 身份信息（URL Hash），构建一张铁壁合围的“黑名单表”。
 *   只要一条新闻进了“草稿箱”或者“已发布库”，明天的脚本哪怕再去源头抓到它 10 次，也会在第一层漏斗把它直接烧掉，彻底根绝同一份素材被反复加工的资源浪费。
 
+### 阶段 3.5：视频生成引擎接入 (Video Engine Integration) — ✅ 已完成
+
+> *2026-04-11 完成：已将 UCO 的文字情报产能升级为短视频产能，含声音克隆。*
+
+**已实现的核心能力**：
+
+1.  **抽象引擎层** (`BaseVideoEngine`): 定义统一的 `render(request) -> result` 合约。未来看到更好的开源视频项目（如 Remotion、Revideo、MoviePy 等），只需新增一个 Engine 实现类并在 `config/video_engines.yaml` 中切换一行配置。Pipeline、Prompt、分发层完全不动。
+2.  **TTS 策略层** (`BaseTTSProvider`): 三级 TTS 提供商体系：
+    - **CosyVoice v3.5-plus**：阿里云 DashScope 声音克隆，使用 Lilian 本人语音
+    - **Edge TTS**：微软免费高质量中文 TTS
+    - **gTTS**：Google TTS 兜底方案
+3.  **FFmpeg 渲染管线**：4 阶段合成（TTS → 视觉卡片 → 音频拼接 → FFmpeg MP4）
+4.  **高端视觉效果**：渐变背景 + 毛玻璃面板 + 双面板卡片设计 + 进度条 + 品牌水印
+5.  **Pipeline 驱动层**: 管线配置中 `publisher_refs` 包含 `video_draft` 时自动触发视频渲染，LLM 使用专属的口播稿 Prompt 模板输出结构化分段脚本。
+
+**声音克隆关键技术决策**：DashScope 免费 Tier 的克隆声音部署窗口极短（秒级），采用「逐段注册」策略 —— 每段口播文本独立注册新 voice_id 并立即合成，绕过 UNDEPLOYED 超时限制。
+
+**第一个落地场景**：`ai_news_video_daily` — 把 UCO 每日采集的 AI 行业头条自动变成 60 秒 TikTok/抖音风格解读短视频，使用 Lilian 本人的声音配音。
+
+### 阶段 3.6：视频引擎优化 (Video Engine Refinement) — 🚧 规划中
+
+> *下一步冲刺方向。*
+
+- **Fish Audio / 硅基流动 TTS**：接入更多高质量声音克隆提供商
+- **视频转场动画**：段间 fade / crossfade 过渡
+- **Web 仪表盘视频预览**：草稿箱中嵌入视频播放器
+- **一键发布**：视频号 / 抖音自动上传
+- **从点子 1 切到点子 5 的扩展路径**：只需新增一个汇总型口播稿 Prompt + 一条新管线配置。视频引擎、TTS、合成、草稿箱全部复用，预估切换时间 30 分钟。
+
 ---
 
 ## 🛠️ 技术架构落地指南 (Technical Implementation)

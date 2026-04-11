@@ -152,15 +152,15 @@ export default function PipelinesPage() {
   return (
     <div className="flex flex-col w-full min-h-screen bg-[#f8f9fa] relative pb-20 font-sans">
       {/* Top Header */}
-      <div className="flex justify-between items-center px-6 py-4 border-b border-[#dadce0] sticky top-0 bg-white z-20 shadow-sm">
-        <h1 className="text-[20px] font-semibold text-gray-900">管线编排面板 (Orchestration Hub)</h1>
+      <div className="flex justify-between items-center px-6 py-3 border-b border-[#dadce0] sticky top-0 bg-white z-20 shadow-sm">
+        <h1 className="text-[18px] font-semibold text-gray-900">管线编排面板 (Orchestration Hub)</h1>
       </div>
 
-      <div className="p-8 w-full max-w-[1240px] mx-auto">
-        <div className="flex justify-between items-end mb-8">
+      <div className="p-6 w-full max-w-[1240px] mx-auto">
+        <div className="flex justify-between items-end mb-6">
           <div>
-            <h2 className="text-[24px] font-semibold text-gray-900 leading-tight">调度管线清单</h2>
-            <p className="text-gray-500 text-sm mt-1">独立人设、并发抓取。如需配置频道内参数，请点击“精细化配置”。</p>
+            <h2 className="text-[20px] font-semibold text-gray-900 leading-tight">调度管线清单</h2>
+            <p className="text-gray-500 text-sm mt-1">独立人设、并发抓取。如需配置频道内参数，请点击"精细化配置"。</p>
           </div>
           <button onClick={fetchPipelines} className="flex items-center justify-center gap-1.5 px-4 py-2 border rounded-lg text-sm font-medium transition-all bg-[#0a66c2] border-[#0a66c2] text-white hover:bg-[#004182] shadow-sm">
              刷新底层配置 <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -173,18 +173,18 @@ export default function PipelinesPage() {
              <span className="font-medium">正在读取管线架构网络...</span>
           </div>
         ) : (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
             {pipelines.map(p => (
-              <div key={p.id} className={`bg-white border rounded-xl p-5 transition-all relative group ${p.active ? 'border-[#dadce0] shadow-sm' : 'border-[#dadce0] opacity-60 bg-[#f8f9fa]'}`}>
-                
+              <div key={p.id} className={`bg-white border rounded-xl p-4 transition-all relative group ${p.active ? 'border-[#dadce0] shadow-sm' : 'border-[#dadce0] opacity-60 bg-[#f8f9fa]'}`}>
+
                 {/* Header row */}
-                <div className="flex justify-between items-start mb-6">
+                <div className="flex justify-between items-start mb-4">
                   <div className="flex flex-col gap-1">
-                     <h3 className="text-[18px] font-semibold text-gray-900 flex items-center gap-2">
+                     <h3 className="text-[16px] font-semibold text-gray-900 flex items-center gap-2">
                        {p.name}
                        {!p.active && <span className="text-xs text-gray-500 font-medium bg-gray-100 border border-[#dadce0] px-2 py-0.5 rounded-full">未激活</span>}
                      </h3>
-                     <p className="text-gray-500 text-sm">{p.description}</p>
+                     <p className="text-gray-500 text-xs">{p.description}</p>
                      <div className="flex items-center gap-1.5 mt-2 text-xs font-medium w-fit px-2 py-1 rounded-md border text-blue-700 bg-blue-50 border-blue-200">
                        <Clock size={12} />
                        {p.schedule_time ? `底层调度锁定: 每天 ${p.schedule_time}` : 'OS级别挂机: 未设 (手动模式)'}
@@ -224,17 +224,17 @@ export default function PipelinesPage() {
                 </div>
 
                 {/* Pipeline Topography - Grid layout avoids truncation */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4 border-t border-[#dadce0]">
-                   
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-3 border-t border-[#dadce0]">
+
                    {/* Col 1: Input Sources */}
                    <div className="flex flex-col">
-                     <div className="flex items-center gap-1.5 text-gray-700 font-medium text-sm mb-3">
-                       <GitMerge size={16} className="text-[#0a66c2]"/> 1. 信号采集端点 (Sources)
+                     <div className="flex items-center gap-1.5 text-gray-700 font-medium text-xs mb-2">
+                       <GitMerge size={14} className="text-[#0a66c2]"/> 1. 信号采集端点 (Sources)
                      </div>
                      <div className="flex flex-wrap gap-2">
                        {p.source_refs?.length ? p.source_refs.map((src: string) => (
-                         <div key={src} className="flex flex-col gap-0.5 bg-white border border-[#dadce0] px-3 py-2 rounded-lg truncate max-w-full group-hover:border-[#c2d7f0]">
-                           <span className="text-sm font-medium text-gray-800 truncate">{SOURCE_MAP[src]?.label || src}</span>
+                         <div key={src} className="flex flex-col gap-0.5 bg-white border border-[#dadce0] px-2 py-1.5 rounded-lg truncate max-w-full group-hover:border-[#c2d7f0]">
+                           <span className="text-xs font-medium text-gray-800 truncate">{SOURCE_MAP[src]?.label || src}</span>
                          </div>
                        )) : <span className="text-xs text-gray-400">尚未分配抓取源</span>}
                      </div>
@@ -242,31 +242,31 @@ export default function PipelinesPage() {
 
                    {/* Col 2: LLM Prompt Config */}
                    <div className="flex flex-col">
-                     <div className="flex items-center gap-1.5 text-gray-700 font-medium text-sm mb-3">
-                       <FileText size={16} className="text-[#0a66c2]" /> 2. 模型人格与生成 (Prompt)
+                     <div className="flex items-center gap-1.5 text-gray-700 font-medium text-xs mb-2">
+                       <FileText size={14} className="text-[#0a66c2]" /> 2. 模型人格与生成 (Prompt)
                      </div>
                      {p.prompt_template ? (
-                        <div 
-                          className="flex flex-col justify-center bg-[#f0f7ff] border border-[#c2d7f0] px-3 py-3 rounded-lg w-full hover:bg-[#ddeeff] cursor-pointer transition-colors"
+                        <div
+                          className="flex flex-col justify-center bg-[#f0f7ff] border border-[#c2d7f0] px-2 py-2 rounded-lg w-full hover:bg-[#ddeeff] cursor-pointer transition-colors"
                           onClick={() => window.location.href = `/settings?prompt=${p.prompt_template}`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-[#0a66c2] font-mono truncate">{p.prompt_template}</span>
-                            <ExternalLink size={14} className="text-[#0a66c2]" />
+                            <span className="text-xs font-semibold text-[#0a66c2] font-mono truncate">{p.prompt_template}</span>
+                            <ExternalLink size={12} className="text-[#0a66c2]" />
                           </div>
-                          <span className="text-[11px] text-[#0a66c2] mt-1 opacity-80">点击跳转至编辑器查阅/修改</span>
+                          <span className="text-[10px] text-[#0a66c2] mt-1 opacity-80">点击跳转至编辑器查阅/修改</span>
                         </div>
                      ) : <span className="text-xs text-gray-400">缺失剧本</span>}
                    </div>
 
                    {/* Col 3: Output Publishers */}
                    <div className="flex flex-col">
-                     <div className="flex items-center gap-1.5 text-gray-700 font-medium text-sm mb-3">
-                       <Send size={16} className="text-[#0a66c2]" /> 3. 分发终端 (Publishers)
+                     <div className="flex items-center gap-1.5 text-gray-700 font-medium text-xs mb-2">
+                       <Send size={14} className="text-[#0a66c2]" /> 3. 分发终端 (Publishers)
                      </div>
                      <div className="flex flex-wrap gap-2">
                        {p.publisher_refs?.length ? p.publisher_refs.map((pub: string) => (
-                         <div key={pub} className="bg-white border border-[#dadce0] text-sm font-medium text-gray-800 px-3 py-2 rounded-lg truncate max-w-full group-hover:border-[#c2d7f0]">
+                         <div key={pub} className="bg-white border border-[#dadce0] text-xs font-medium text-gray-800 px-2 py-1.5 rounded-lg truncate max-w-full group-hover:border-[#c2d7f0]">
                            {PUB_MAP[pub] || pub}
                          </div>
                        )) : <span className="text-xs text-gray-400">孤岛状态</span>}

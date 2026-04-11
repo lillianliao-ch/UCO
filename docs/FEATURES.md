@@ -1,31 +1,116 @@
-# Supported Features Ledger (v1.5 Baseline)
+# Universal Content Orchestrator 功能清单
 
-## 📡 Inbound Sourcing (Sources)
-- ✅ **Live VIP Footprint Radar (`duckduckgo-search`)**: Actively grabs S/A+ tier candidates from the local AI Headhunter internal SQLite database, formats targeted queries, and scours the internet for their last 30 days of public news, podcasts, PRs, and GitHub activity.
-- ✅ **CRM Cross-Talk (AI Headhunter DB)**: Taps into `personal-ai-headhunter/data/headhunter_dev.db` to extract executive talent intel for tracking.
-- ✅ **Legacy RSS Ingestion**: Smoothly ports high-quality tech feeds (InfoQ, 36Kr, Jiqizhixin) and financial filings (WSJ, SEC 13F) via feedparser.
-- ✅ **HackerNews & ProductHunt Firehose**: Leverages legacy APIs to aggregate deep-tech solopreneur insights and globally trending repos.
+> 最后更新：2026-04-11
+> 状态：v2.0 — 含视频引擎 + 声音克隆
 
-## 🧠 Core Processing (Brains)
-- ✅ **Dynamic Persona Injection**: Moves away from hard-coded single-persona structures. The LLM Engine acts as a director dynamically loading Markdown personas (`org_chart_analysis.md`, `finance_hardcore_report.md`, `live_footprint_analysis.md`) per pipeline requirement.
-- ✅ **Intelligent Priority Selector**: Evaluates raw context dumps to bubble up the top 3 highest-value signals per pipeline run.
-- ✅ **Aesthetic Typography Engine**: A robust, pure-python `Pillow` deterministic canvas renderer for Social Media posters (Xiaohongshu & WeChat Covers).
+本文档列出了系统当前支持的所有功能。
 
-## 📭 Outbound Distro (Publishers)
-- ✅ **Feishu Custom Bot Webhook (`feishu_adapter.py`)**: Seamless, real-time push to private Lark/Feishu workgroups, supporting text and post payloads mapping to `FEISHU_WEBHOOK_URL`.
-- ✅ **Enterprise WeChat (WeCom) CLI Bridge (`wecom_adapter.py`)**: Highly integrated `subprocess` wrapper utilizing `wecom-cli` to bypass strict proxy requirements and inject intelligence directly into WeCom.
-- ✅ **Telegram Global Beacon**: Mobile broadcast pipeline dynamically routing plain-text "Ice Breaker" templates and debugging logs straight to Lilian's mobile.
-- ✅ **Native WeChat MP Publisher (CDP/Playwright)**: Bypass bridge to inject LLM rendered payloads directly into the UEditor iframe via CDP.
-- ✅ **OpenCLI Xiaohongshu Dispatcher**: Native draft injection avoiding manual staging.
+它可以回答：
 
-## ⚙️ System Execution (Orchestration & UX)
-- ✅ **Next.js Web Dashboard**: Modern React interface (`web_dashboard/`) running on `api_server.py`. Provides real-time visibility into channel toggle states (`pipelines.yaml`) and allows live Markdown editing of Prompt constraints.
-- ✅ **Targeted Pipeline Runner**: `python3 main.py <pipeline_id>` support for isolating specific agent workflows (e.g. `live_footprint_monitor`) for testing.
-- ✅ **Isolated State Management**: `EventStateManager` now tracks deduplication on a strictly per-pipeline basis, allowing identical root articles to be processed differently by different pipelines without causing memory collisions.
+- 存在哪些数据源类型
+- 存在哪些输出渠道
+- 已有哪些操作功能
+- 哪些功能仍在开发中
 
-## 📊 Process Management & Auditing (Phase 2 Architecture Roadmap)
-- 🚧 **Pipeline Observability Funnel**: Forcing all sources to report pre-filtering metrics (`scraped` -> `filtered_out` -> `passed`) to `pipeline_run_history` to eradicate the "blind crawler" problem.
-- 🚧 **Fault-Tolerant Execution Hub**: A rigid `try...finally` architecture guarding `main.py` ensures that if an LLM timeout triggers a core panic, the pipeline safely commits an `ERROR` state with tracebacks, preventing "zombie" database locks.
-- 🚧 **Bifurcated Publisher Gateway**: A strict separation of distribution endpoints:
-  - **Notify (Sync)**: Telegram/Feishu webhooks bypass all checks and fire instantly to alert the user.
-  - **Asset/Draft (Async)**: High-risk aesthetic platforms (WeChat/Xiaohongshu) immediately sink payloads into the `content_drafts` SQL database, triggering human-in-the-loop (HITL) manual review.
+## 当前数据源能力
+
+### 数据库 / 人才数据源
+
+- 通过 `db_talent_source.py` 接入本地 AI 猎头数据库
+- 与本地候选人数据库绑定的高管 / 人才监控流程
+
+### Web / Feed 数据源
+
+- 实时足迹监控
+- 传统 RSS 订阅
+- GitHub 热门项目抓取
+- ArXiv 论文监控
+- OpenCLI HackerNews 风格数据源
+- TrendRadar 数据源
+- **新增**：YouTube 视频内容抓取（字幕提取 + 元数据）
+- **新增**：V2EX 中文技术社区监控
+- **实验性**：Reddit 内容抓取（API 限制，暂时跳过）
+
+## 当前处理能力
+
+- 通过 `config/pipelines.yaml` 进行配置驱动的管线调度
+- 基于 LLM 的事件筛选 / 优先级排序
+- 通过 Prompt 模板驱动的内容合成
+- 每个管线的去重机制（通过 `EventStateManager`）
+- 运行追踪和产物持久化
+- 草稿审核渠道的海报生成
+
+## 当前输出能力
+
+### 直接通知渠道
+
+- Telegram
+- 飞书
+- 企业微信
+
+这些渠道用于快速通知式分发。
+
+### 草稿 / 审核渠道
+
+- 微信
+- 小红书
+
+这些渠道目前通过草稿导向的审核流程处理，而非完全自动发布。
+
+### 视频输出
+
+通过可插拔的视频引擎生成 1080×1920 竖版短视频（MP4），用于抖音 / TikTok / 视频号等平台。
+
+已实现能力：
+
+- **视觉渲染**：渐变背景 + 毛玻璃质感面板 + 进度条 + 品牌水印
+- **偏平化卡片设计**：
+  - 标题卡：Badge + 标题 + 来源标签
+  - 内容卡：上半关键词高亮（青色）+ 下半完整口播原文（白色）
+- **TTS 语音合成**：
+  - Edge TTS（免费、女声 XiaoxiaoNeural / 男声 YunxiNeural）
+  - Google TTS（免费兜底）
+  - **CosyVoice 声音克隆**（使用 Lilian 本人语音，基于 DashScope v3.5-plus）
+- **音频节奏控制**：2.5s 标题卡静音开场 + 0.8s 段间呼吸停顿
+- **视频草稿保存到本地存储**，供人工审核后分发
+
+视频引擎设计为抽象层（`BaseVideoEngine`）。当前实现使用 FFmpeg 进行本地渲染。引擎可以更换而不影响管线或 Prompt。
+
+## 开源技术栈 / 依赖项
+
+以下是系统集成的开源项目和外部服务：
+
+| 组件 | 开源项目 / 服务 | 用途 |
+|------|-------------|------|
+| 视频编码 | **FFmpeg** (`ffmpeg-python`) | 视频合成、音频拼接、格式转换 |
+| 图像生成 | **Pillow** (PIL) | 视觉卡片渲染（渐变、面板、排版） |
+| TTS 免费 | **edge-tts** | 微软 Edge 语音合成 API 封装 |
+| TTS 兜底 | **gTTS** | Google Translate TTS |
+| 声音克隆 | **DashScope SDK** (`dashscope`) | 阿里云 CosyVoice v3.5-plus 声音克隆 |
+| 临时文件托管 | **tmpfiles.org** | 为 DashScope 提供参考音频的公开 URL |
+| LLM 引擎 | **通义千问 Qwen** (DashScope) | 事件筛选、内容合成、视频脚本生成 |
+| 配置管理 | **PyYAML** | 管线和视频引擎配置 |
+| YouTube 数据 | **yt-dlp** | YouTube 视频元数据和字幕提取 |
+| Web 抓取 | **Playwright / CDP** | 浏览器自动化和会话克隆 |
+
+## 当前 UX / 平台能力
+
+- 目标管线执行：
+  - `python3 main.py <pipeline_id>`
+- 位于 `src/api_server.py` 的 API 层
+- 位于 `web_dashboard/` 的仪表盘前端
+- 定时任务支持，详见 `docs/SCHEDULED_TASKS.md`
+
+## 开发中 / 尚未完全完成
+
+这些是活跃的架构和产品方向，而非完全“完成”的功能：
+
+- 更深入的执行可观测性漏斗
+- 更强的失败状态和追踪持久化
+- 更正式的人工审核草稿工作流
+- Web 仪表盘草稿箱中的视频预览
+- 一键发布视频到抖音 / 微信视频号
+- Fish Audio / 硅基流动 TTS 提供商接入
+- 视频转场动画（fade / crossfade）
+
+如果某个项目仍然主要被描述为未来的架构步骤或路线图项目，则应被视为计划中 / 开发中，而非完全完成的功能。

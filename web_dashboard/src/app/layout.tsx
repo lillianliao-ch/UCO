@@ -3,7 +3,6 @@ import "./globals.css";
 import React from "react";
 import Link from "next/link";
 import { Database, Bell, LayoutList, CheckSquare, Settings, Play, Search, Info, LayoutTemplate, Palette } from "lucide-react";
-import TriggerModal from "@/components/TriggerModal";
 
 export const metadata: Metadata = {
   title: "Media Query Console",
@@ -31,9 +30,9 @@ export default function RootLayout({
 
           <nav className="flex flex-col w-full gap-2 relative">
             {[
-              { label: "数据源管理", icon: <Database size={24} />, href: "/" },
+              { label: "管线管理", icon: <Database size={24} />, href: "/" },
+              { label: "执行历史", icon: <LayoutList size={24} />, href: "/history" },
               { label: "未读采集", icon: <Bell size={24} />, href: "#" },
-              { label: "私有 Timeline", icon: <LayoutList size={24} />, href: "#" },
               { label: "审核与发布", icon: <CheckSquare size={24} />, href: "/drafts" },
               { label: "系统设置", icon: <Settings size={24} />, href: "/settings" },
             ].map((item) => (
@@ -44,8 +43,6 @@ export default function RootLayout({
             ))}
           </nav>
 
-          <TriggerModal />
-          
           {/* Profile Section */}
           <div className="mt-auto mb-4 flex items-center gap-3 hover:bg-[var(--app-hover)] p-3 rounded-full cursor-pointer w-[250px] transition-colors">
             <div className="w-10 h-10 bg-[var(--app-blue)] rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">

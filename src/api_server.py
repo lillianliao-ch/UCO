@@ -1,8 +1,12 @@
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import os
+import sys
 import subprocess
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import json
 import time
 import yaml
 import typing
@@ -21,6 +25,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+assets_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "assets")
+os.makedirs(assets_dir, exist_ok=True)
+app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+videos_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "videos")
+os.makedirs(videos_dir, exist_ok=True)
+app.mount("/videos", StaticFiles(directory=videos_dir), name="videos")
 
 class CloneRequest(BaseModel):
     port: int = 9224
@@ -227,15 +239,44 @@ def toggle_pipeline(req: PipelineToggleRequest):
 
 
 class DraftUpdateRequest(BaseModel):
-    content_md: str
+    markdown_body: str
     title: str
+
+@app.get("/api/history")
+def get_pipeline_history():
+    sm = EventStateManager()
+    with sqlite3.connect(sm.db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.execute("SELECT * FROM pipeline_run_history ORDER BY start_time DESC LIMIT 100")
+        rows = cursor.fetchall()
+        history = [dict(row) for row in rows]
+    return {"status": "success", "data": history}
+
+@app.get("/api/history/{run_id}/artifacts")
+def get_pipeline_artifacts(run_id: str):
+    sm = EventStateManager()
+    try:
+        with sqlite3.connect(sm.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT * FROM run_artifacts WHERE run_id = ? ORDER BY created_at DESC", (run_id,))
+            rows = cursor.fetchall()
+            
+            # Need to parse JSON for frontend
+            artifacts = []
+            for row in rows:
+                d = dict(row)
+                d["channel_status"] = json.loads(d["channel_status_json"]) if d.get("channel_status_json") else {}
+                artifacts.append(d)
+        return {"status": "success", "data": artifacts}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.get("/api/drafts")
 def get_all_drafts():
     sm = EventStateManager()
     with sqlite3.connect(sm.db_path) as conn:
         conn.row_factory = sqlite3.Row
-        cursor = conn.execute("SELECT * FROM content_drafts WHERE status='PENDING' ORDER BY generate_time DESC")
+        cursor = conn.execute("SELECT * FROM content_drafts WHERE status='PENDING' ORDER BY created_at DESC")
         rows = cursor.fetchall()
         drafts = [dict(row) for row in rows]
     return {"status": "success", "data": drafts}
@@ -244,7 +285,7 @@ def get_all_drafts():
 def update_draft(draft_id: str, req: DraftUpdateRequest):
     sm = EventStateManager()
     with sqlite3.connect(sm.db_path) as conn:
-        conn.execute("UPDATE content_drafts SET content_md=?, title=? WHERE draft_id=?", (req.content_md, req.title, draft_id))
+        conn.execute("UPDATE content_drafts SET markdown_body=?, title=? WHERE draft_id=?", (req.markdown_body, req.title, draft_id))
     return {"status": "success", "message": "Draft updated"}
 
 @app.post("/api/drafts/{draft_id}/publish")
@@ -258,9 +299,10 @@ def publish_draft(draft_id: str):
     if not draft:
         return {"status": "error", "message": "Draft not found"}
         
-    title, content = draft["title"], draft["content_md"]
-    poster_xhs, poster_wx = draft["poster_path_xhs"], draft["poster_path_wx"]
-    pipeline_id = draft["pipeline_id"]
+    d_dict = dict(draft)
+    title, content = d_dict["title"], d_dict["markdown_body"]
+    poster_xhs, poster_wx = d_dict.get("poster_path_xhs"), d_dict.get("poster_path_wx")
+    pipeline_id = d_dict["pipeline_id"]
     
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "pipelines.yaml")
     publishers = []
@@ -276,16 +318,24 @@ def publish_draft(draft_id: str):
     if "xiaohongshu" in publishers:
         from publishers.opencli_xhs_adapter import OpenCLIXiaohongshuPublisher
         try:
-            OpenCLIXiaohongshuPublisher().push_draft(title, content, poster_xhs)
-            successes.append("xiaohongshu")
+            real_p = os.path.join(assets_dir, poster_xhs.replace("/assets/", "")) if poster_xhs else None
+            is_ok = OpenCLIXiaohongshuPublisher().push(content, title, [real_p] if real_p else [])
+            if is_ok:
+                successes.append("xiaohongshu")
+            else:
+                errors.append("xhs: OpenCLI 跨边界执行返回 False (Cookie可能丢失或格式失败)")
         except Exception as e:
             errors.append(f"xhs: {e}")
             
     if "wechat" in publishers:
         from publishers.wechat_adapter import WeChatPublisher
         try:
-            WeChatPublisher().push_draft(title, content, poster_wx)
-            successes.append("wechat")
+            real_p = os.path.join(assets_dir, poster_wx.replace("/assets/", "")) if poster_wx else None
+            is_ok = WeChatPublisher().push(title, content, real_p)
+            if is_ok:
+                successes.append("wechat")
+            else:
+                errors.append("wechat: 驱动执行返回 False")
         except Exception as e:
             errors.append(f"wechat: {e}")
 
