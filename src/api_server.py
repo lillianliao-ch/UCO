@@ -323,6 +323,16 @@ def get_all_drafts():
         drafts = [dict(row) for row in rows]
     return {"status": "success", "data": drafts}
 
+@app.get("/api/published")
+def get_all_published():
+    sm = EventStateManager()
+    with sqlite3.connect(sm.db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.execute("SELECT * FROM content_drafts WHERE status='PUBLISHED' ORDER BY created_at DESC")
+        rows = cursor.fetchall()
+        published = [dict(row) for row in rows]
+    return {"status": "success", "data": published}
+
 @app.put("/api/drafts/{draft_id}")
 def update_draft(draft_id: str, req: DraftUpdateRequest):
     sm = EventStateManager()
