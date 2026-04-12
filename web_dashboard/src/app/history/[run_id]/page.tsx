@@ -238,6 +238,8 @@ export default function RunDetailPage() {
           ))}
         </div>
       )}
+      </div>
+      )}
     </div>
   );
 }
