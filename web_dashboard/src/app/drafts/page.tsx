@@ -16,6 +16,7 @@ interface Draft {
 export default function DraftsPage() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedDraftIds, setSelectedDraftIds] = useState<Set<string>>(new Set());
   const [editorContent, setEditorContent] = useState("");
   const [editorTitle, setEditorTitle] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -81,6 +82,38 @@ export default function DraftsPage() {
     setIsPublishing(false);
   };
 
+  const handleBulkPublish = async () => {
+    if (selectedDraftIds.size === 0) return;
+    if (!confirm(`确定将选中的 ${selectedDraftIds.size} 篇草稿批量推送到平台吗？这将逐个开启浏览器自动化，可能需要几分钟。`)) return;
+    
+    setIsPublishing(true);
+    let successCount = 0;
+    
+    if (selectedId && selectedDraftIds.has(selectedId)) {
+        await handleSave();
+    }
+
+    for (const draftId of Array.from(selectedDraftIds)) {
+      try {
+        const res = await fetch(`http://localhost:8000/api/drafts/${draftId}/publish`, { method: "POST" });
+        const data = await res.json();
+        if (data.status === "success") {
+          successCount++;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    
+    alert(`批量推送完成！成功推送 ${successCount}/${selectedDraftIds.size} 篇稿件到草稿箱。`);
+    fetchDrafts();
+    setSelectedDraftIds(new Set());
+    if (selectedId && selectedDraftIds.has(selectedId)) {
+       setSelectedId(null);
+    }
+    setIsPublishing(false);
+  };
+
   const handleDiscard = async () => {
     if (!selectedId) return;
     if (!confirm("确定要彻底销毁这篇草稿吗？")) return;
@@ -98,9 +131,35 @@ export default function DraftsPage() {
       
       {/* Draft Queue Panel */}
       <div className="w-[320px] bg-white border-r border-[#dadce0] flex flex-col h-full shrink-0">
-        <div className="px-5 py-4 border-b border-[#dadce0] flex items-center justify-between">
-          <h2 className="text-lg font-bold">待审草稿 (Pending)</h2>
-          <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full font-medium">{drafts.length}</span>
+        <div className="px-5 py-4 border-b border-[#dadce0] flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">待审草稿 (Pending)</h2>
+            <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full font-medium">{drafts.length}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="rounded border-gray-300 w-3.5 h-3.5"
+                checked={drafts.length > 0 && selectedDraftIds.size === drafts.length}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedDraftIds(new Set(drafts.map(d => d.draft_id)));
+                  } else {
+                    setSelectedDraftIds(new Set());
+                  }
+                }}
+              />
+              <span className="font-medium">全选 ({selectedDraftIds.size})</span>
+            </label>
+            <button 
+              disabled={selectedDraftIds.size === 0 || isPublishing}
+              onClick={handleBulkPublish}
+              className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-2.5 py-1.5 rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors border border-blue-200"
+            >
+              <Send size={12} className={isPublishing ? "animate-bounce" : ""} /> {isPublishing ? "批量推送中..." : "批量推送草稿"}
+            </button>
+          </div>
         </div>
         
         <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 flex flex-col gap-2 text-xs shrink-0">
@@ -122,15 +181,31 @@ export default function DraftsPage() {
               {drafts.map((d) => (
                 <div 
                   key={d.draft_id}
-                  onClick={() => setSelectedId(d.draft_id)}
-                  className={`p-4 border-b border-[#dadce0] cursor-pointer transition-colors ${selectedId === d.draft_id ? 'bg-[#f0f7ff] border-l-4 border-l-[#0a66c2]' : 'hover:bg-[#f1f3f4] border-l-4 border-l-transparent'}`}
+                  className={`border-b border-[#dadce0] transition-colors ${selectedId === d.draft_id ? 'bg-[#f0f7ff] border-l-4 border-l-[#0a66c2]' : 'hover:bg-[#f1f3f4] border-l-4 border-l-transparent'}`}
                 >
-                  <h3 className={`text-sm mb-1 line-clamp-2 ${selectedId === d.draft_id ? 'font-bold text-[#0a66c2]' : 'font-semibold text-gray-800'}`}>
-                    {d.title}
-                  </h3>
-                  <div className="flex items-center justify-between text-xs mt-2">
-                    <span className="text-gray-500 font-medium bg-gray-100 px-1.5 py-0.5 rounded">{d.pipeline_id}</span>
-                    <span className="text-gray-400">{d.created_at ? d.created_at.split("T")[1]?.substring(0, 8) : "未知时间"}</span>
+                  <div className="flex items-start p-4 gap-3">
+                    <input 
+                      type="checkbox" 
+                      className="mt-1 flex-shrink-0 cursor-pointer w-3.5 h-3.5"
+                      checked={selectedDraftIds.has(d.draft_id)}
+                      onChange={(e) => {
+                        const newSet = new Set(selectedDraftIds);
+                        if (e.target.checked) newSet.add(d.draft_id);
+                        else newSet.delete(d.draft_id);
+                        setSelectedDraftIds(newSet);
+                      }}
+                    />
+                    <div className="flex-1 cursor-pointer min-w-0" onClick={() => setSelectedId(d.draft_id)}>
+                      <h3 className={`text-sm mb-1 line-clamp-2 ${selectedId === d.draft_id ? 'font-bold text-[#0a66c2]' : 'font-semibold text-gray-800'}`}>
+                        {d.title}
+                      </h3>
+                      <div className="flex items-center justify-between text-xs mt-2">
+                        <span className="text-gray-500 font-medium bg-gray-100 px-1.5 py-0.5 rounded truncate max-w-[120px]" title={d.pipeline_id}>
+                          {d.pipeline_id}
+                        </span>
+                        <span className="text-gray-400 shrink-0">{d.created_at ? d.created_at.split("T")[1]?.substring(0, 8) : "未知时间"}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
