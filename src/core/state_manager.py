@@ -59,6 +59,19 @@ class EventStateManager:
                     created_at TEXT
                 )
             ''')
+            # 建立漏斗观测探针，追踪数据源的转化率与异常崩溃
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS run_source_metrics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id TEXT,
+                    source_name TEXT,
+                    status TEXT,
+                    items_fetched INTEGER DEFAULT 0,
+                    items_selected INTEGER DEFAULT 0,
+                    error_msg TEXT,
+                    created_at TEXT
+                )
+            ''')
             # 建立人工审核草稿箱
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS content_drafts (
@@ -144,4 +157,26 @@ class EventStateManager:
                 INSERT OR REPLACE INTO run_artifacts (artifact_id, run_id, pipeline_id, event_url, title, markdown_body, channel_status_json, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (artifact_id, run_id, pipeline_id, event_url, title, markdown_body, channel_status_json, datetime.now().isoformat()))
+
+    def log_source_metric(self, run_id: str, source_name: str, status: str, items_fetched: int = 0, items_selected: int = 0, error_msg: str = None):
+        """Monitor tracking metric for source ROI and silent failures."""
+        # 允许后期 update items_selected，如果同一次 run 同一个 source 已有记录，则更新它
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT id, items_fetched, items_selected FROM run_source_metrics WHERE run_id=? AND source_name=?", (run_id, source_name))
+            row = cursor.fetchone()
+            if row:
+                # Update existing (used during LLM filter pass)
+                _id, old_fetched, old_selected = row
+                new_fetched = old_fetched if items_fetched == 0 else items_fetched
+                new_selected = old_selected if items_selected == 0 else items_selected
+                conn.execute('''
+                    UPDATE run_source_metrics 
+                    SET status=?, items_fetched=?, items_selected=?, error_msg=? 
+                    WHERE id=?
+                ''', (status, new_fetched, new_selected, error_msg, _id))
+            else:
+                conn.execute('''
+                    INSERT INTO run_source_metrics (run_id, source_name, status, items_fetched, items_selected, error_msg, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (run_id, source_name, status, items_fetched, items_selected, error_msg, datetime.now().isoformat()))
 

@@ -252,6 +252,48 @@ def get_pipeline_history():
         history = [dict(row) for row in rows]
     return {"status": "success", "data": history}
 
+@app.get("/api/history/{run_id}/metrics")
+def get_pipeline_metrics(run_id: str):
+    sm = EventStateManager()
+    try:
+        with sqlite3.connect(sm.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT * FROM run_source_metrics WHERE run_id = ? ORDER BY items_fetched DESC", (run_id,))
+            rows = cursor.fetchall()
+            metrics = [dict(row) for row in rows]
+        return {"status": "success", "data": metrics}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.get("/api/analytics/sources")
+def get_source_roi_analytics():
+    sm = EventStateManager()
+    try:
+        with sqlite3.connect(sm.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            # Aggregating source metrics across runs
+            cursor = conn.execute('''
+                SELECT 
+                    source_name,
+                    COUNT(DISTINCT run_id) as run_count,
+                    SUM(items_fetched) as total_fetched,
+                    SUM(items_selected) as total_selected,
+                    SUM(CASE WHEN status='ERROR' THEN 1 ELSE 0 END) as error_count
+                FROM run_source_metrics
+                GROUP BY source_name
+                ORDER BY total_selected DESC, total_fetched DESC
+            ''')
+            rows = cursor.fetchall()
+            stats = []
+            for r in rows:
+                d = dict(r)
+                hit_rate = (d["total_selected"] / d["total_fetched"] * 100) if d["total_fetched"] > 0 else 0
+                d["hit_rate_pct"] = round(hit_rate, 2)
+                stats.append(d)
+        return {"status": "success", "data": stats}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @app.get("/api/history/{run_id}/artifacts")
 def get_pipeline_artifacts(run_id: str):
     sm = EventStateManager()

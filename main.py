@@ -242,6 +242,27 @@ def run_dynamic_pipeline(pipe):
     run_id = f"run_{pipe['id']}_{int(time.time())}"
     state_manager.create_pipeline_run(run_id, pipe['id'])
     
+    def fetch_with_probe(probe_name: str, fetch_callable, results_list: list):
+        try:
+            ts = time.time()
+            res = fetch_callable()
+            if res:
+                # Group by actual assigned source_channel inside the Events
+                counts = {}
+                for e in res:
+                    ch = e.source_channel or probe_name
+                    counts[ch] = counts.get(ch, 0) + 1
+                for ch, c in counts.items():
+                    state_manager.log_source_metric(run_id, ch, "SUCCESS", items_fetched=c)
+                results_list.extend(res)
+                print(f"      ↳ [Probe] {probe_name} 采集完成 ({len(res)}条, {time.time()-ts:.1f}s)")
+            else:
+                state_manager.log_source_metric(run_id, probe_name, "SUCCESS", items_fetched=0)
+                print(f"      ↳ [Probe] {probe_name} 无新产生内容")
+        except Exception as e:
+            state_manager.log_source_metric(run_id, probe_name, "ERROR", error_msg=str(e))
+            print(f"      ↳ [Probe] ❌ {probe_name} 崩溃拦截: {e}")
+
     items_scraped = 0
     items_passed_llm = 0
     drafts_generated = 0
@@ -259,17 +280,17 @@ def run_dynamic_pipeline(pipe):
             from src.sources.trendradar_source import TrendRadarSource
             kwargs = {"limit": 15}
             if tr_platforms: kwargs["platforms"] = tr_platforms
-            events.extend(TrendRadarSource().fetch(**kwargs))
+            fetch_with_probe("TrendRadar", lambda: TrendRadarSource().fetch(**kwargs), events)
 
         # 2. OpenCLI HackerNews
         if "opencli_hackernews" in source_refs or "rss_hacker_news" in source_refs:
             from src.sources.opencli_hackernews import OpenCLIHackerNewsSource
-            events.extend(OpenCLIHackerNewsSource().fetch(limit=15))
+            fetch_with_probe("OpenCLI_HackerNews", lambda: OpenCLIHackerNewsSource().fetch(limit=15), events)
 
         # 3. DB Talent Source
         if "maimai_updates" in source_refs or "linkedin_monitor" in source_refs:
             from src.sources.db_talent_source import DBTalentSource
-            events.extend(DBTalentSource().fetch(limit=10))
+            fetch_with_probe("DBTalent_Maimai", lambda: DBTalentSource().fetch(limit=10), events)
 
         # 4. Legacy RSS
         rss_map_active = {}
@@ -288,35 +309,33 @@ def run_dynamic_pipeline(pipe):
         
         if rss_map_active:
             from src.sources.legacy_rss import LegacyRSSSource
-            events.extend(LegacyRSSSource(rss_map_active).fetch(limit=15))
+            fetch_with_probe("Legacy_RSS", lambda: LegacyRSSSource(rss_map_active).fetch(limit=15), events)
             
         if "live_footprint_source" in source_refs:
             from src.sources.live_footprint_source import LiveFootprintSource
-            events.extend(LiveFootprintSource().fetch(limit=3))
+            fetch_with_probe("Live_Footprint", lambda: LiveFootprintSource().fetch(limit=3), events)
 
-        # 5. GitHub Trending (新: UCO 标准源 + 事件总线广播)
+        # 5. GitHub Trending
         if "github_trending" in source_refs:
             from src.sources.github_trending_source import GitHubTrendingSource
-            events.extend(GitHubTrendingSource().fetch(limit=15))
+            fetch_with_probe("GitHub_Trending", lambda: GitHubTrendingSource().fetch(limit=15), events)
 
-        # 6. ArXiv 论文监控 (新: UCO 标准源 + 事件总线广播)
+        # 6. ArXiv 论文监控
         if "arxiv_monitor" in source_refs:
             from src.sources.arxiv_source import ArxivSource
-            events.extend(ArxivSource().fetch(limit=15))
+            fetch_with_probe("ArXiv_Monitor", lambda: ArxivSource().fetch(limit=15), events)
 
-        # 7. YouTube AI技术视频监控 (新: Agent-Reach集成)
+        # 7. YouTube AI技术视频监控
         if "youtube_ai_trends" in source_refs:
             from src.sources.youtube_source import YouTubeSource
-            youtube = YouTubeSource(
-                search_queries=['LLM tutorial', 'AI agent development', 'RAG implementation']
-            )
-            events.extend(youtube.fetch(limit=3))
+            youtube = YouTubeSource(search_queries=['LLM tutorial', 'AI agent development', 'RAG implementation'])
+            fetch_with_probe("YouTube_AI", lambda: youtube.fetch(limit=3), events)
 
-        # 8. V2EX中文技术社区监控 (新: Agent-Reach集成)
+        # 8. V2EX中文技术社区监控
         if "v2ex_ai_discussions" in source_refs:
             from src.sources.v2ex_source import V2EXSource
-            v2ex = V2EXSource(node_ids=['678', '1135'])  # ML 和 OpenAI 节点
-            events.extend(v2ex.fetch(limit=5))
+            v2ex = V2EXSource(node_ids=['678', '1135'])
+            fetch_with_probe("V2EX", lambda: v2ex.fetch(limit=5), events)
 
         items_scraped = len(events)
         print(f"🛡️ [1.5] 海马体记忆介入，当前原始情报池大小: {items_scraped}。开始过滤...")
@@ -335,6 +354,13 @@ def run_dynamic_pipeline(pipe):
         filter_tpl = pipe.get("filter_template", "filter_priority.md")
         top_events = brain.select_top_articles(new_events, limit=3, filter_template=filter_tpl)
         items_passed_llm = len(top_events)
+        
+        # 将被选中的战果追加溯源到探针数据中（更新 ROI 漏斗）
+        from collections import Counter
+        hit_counts = Counter([e.source_channel for e in top_events])
+        for channel, _ in hit_counts.items():
+            # fetch the actual item count previously scraped
+            state_manager.log_source_metric(run_id, channel, "SUCCESS", items_selected=hit_counts[channel])
         
         print(f"\n🚀 [3] 锁定 {items_passed_llm} 篇顶级锚点，开始逐点击破与分发：")
         for i, event in enumerate(top_events, 1):
