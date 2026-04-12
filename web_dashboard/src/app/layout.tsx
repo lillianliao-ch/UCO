@@ -32,8 +32,8 @@ export default function RootLayout({
             {[
               { label: "管线管理", icon: <Database size={24} />, href: "/" },
               { label: "执行历史", icon: <LayoutList size={24} />, href: "/history" },
-              { label: "未读采集", icon: <Bell size={24} />, href: "#" },
               { label: "审核与发布", icon: <CheckSquare size={24} />, href: "/drafts" },
+              { label: "已发档房", icon: <LayoutTemplate size={24} />, href: "/library" },
               { label: "系统设置", icon: <Settings size={24} />, href: "/settings" },
             ].map((item) => (
               <Link href={item.href} key={item.label} className={`flex items-center gap-4 w-fit rounded-full px-5 py-3 cursor-pointer transition-colors duration-200 hover:bg-[var(--app-hover)]`}>

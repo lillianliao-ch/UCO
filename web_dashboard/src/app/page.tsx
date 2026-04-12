@@ -118,14 +118,20 @@ export default function PipelinesPage() {
     "rss_producthunt": { label: "💡 ProductHunt", desc: "每日海外独立黑客产品发榜打新" },
     
     // Advanced/Misc
-    "live_footprint_source": { label: "🌐 绝密足迹监控 (DuckDuckGo)", desc: "免密全网人物历史足迹动态扫描" }
+    "live_footprint_source": { label: "🌐 绝密足迹监控 (DuckDuckGo)", desc: "免密全网人物历史足迹动态扫描" },
+    
+    // Agent-Reach API Sources
+    "youtube_ai_trends": { label: "▶️ YouTube AI 趋势", desc: "油管优质 AI 教程与深度解析视频" },
+    "v2ex_ai_discussions": { label: "💬 V2EX 技术社区", desc: "国内优质程序员论坛 ML/OpenAI 节点热议" }
   };
 
   const PUB_MAP: Record<string, string> = {
-    "xiaohongshu": "小红书矩阵 (自动图文)",
-    "wechat_official": "微信公众号 (草稿箱)",
-    "telegram_log": "Telegram (您的私人审查群)",
-    "feishu_webhook": "飞书工作台 (猎头/交付端点)"
+    "xiaohongshu": "小红书矩阵 (图文草稿)",
+    "video_draft": "短视频 (自动混剪草稿)",
+    "wechat_official": "微信公众号 (草稿)",
+    "telegram_log": "Telegram (私人审核通知发送)",
+    "feishu_webhook": "飞书工作台 (自动化群推送)",
+    "wecom_notification": "企业微信 (内部战报)"
   };
 
   // Group definitions for UI
@@ -133,6 +139,7 @@ export default function PipelinesPage() {
     "📊 TrendRadar 实况舆情": ["tr_baidu", "tr_weibo", "tr_bilibili-hot-search", "tr_zhihu", "tr_toutiao", "tr_wallstreetcn-hot"],
     "🇨🇳 本土创投与商业媒体": ["rss_36kr", "rss_tmtpost", "rss_jiqizhixin", "rss_geekpark"],
     "🌐 硅谷大厂与极客风投": ["rss_techcrunch", "rss_wsj", "rss_hackernews", "rss_producthunt"],
+    "🤖 Agent-Reach 新生态": ["youtube_ai_trends", "v2ex_ai_discussions"],
     "🔒 追踪与审查引擎": ["live_footprint_source"]
   };
 
