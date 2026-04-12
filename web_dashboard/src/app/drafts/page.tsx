@@ -69,11 +69,11 @@ export default function DraftsPage() {
       const res = await fetch(`http://localhost:8000/api/drafts/${selectedId}/publish`, { method: "POST" });
       const data = await res.json();
       if (data.status === "success") {
-        alert("发布成功！");
+        alert("推送成功！已安全送达各大平台的草稿箱中。");
         fetchDrafts();
         setSelectedId(null);
       } else {
-        alert("发布失败: " + data.message);
+        alert("推送失败: " + data.message);
       }
     } catch (e) {
       console.error(e);
@@ -262,7 +262,7 @@ export default function DraftsPage() {
                   className="flex items-center justify-center gap-1.5 px-6 py-2 border border-[#c2d7f0] rounded-lg bg-[#f0f7ff] text-sm font-bold text-[#0a66c2] hover:bg-[#ddeeff] transition-all cursor-pointer disabled:opacity-50"
                 >
                   <Send size={16} className={isPublishing ? "animate-bounce" : ""} /> 
-                  {isPublishing ? '发布中...' : '核准直发 (Approve & Publish)'}
+                  {isPublishing ? '跨边界推送中...' : '推送到平台草稿箱 (Push to Platform Drafts)'}
                 </button>
               </div>
             </div>
