@@ -121,7 +121,6 @@ export default function RunDetailPage() {
             <p className="text-sm opacity-90 mt-1">{error}</p>
           </div>
         </div>
-        </div>
       ) : (
         <div className="space-y-8">
           
