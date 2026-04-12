@@ -318,8 +318,12 @@ def publish_draft(draft_id: str):
     if "xiaohongshu" in publishers:
         from publishers.opencli_xhs_adapter import OpenCLIXiaohongshuPublisher
         try:
-            real_p = os.path.join(assets_dir, poster_xhs.replace("/assets/", "")) if poster_xhs else None
-            is_ok = OpenCLIXiaohongshuPublisher().push(content, title, [real_p] if real_p else [])
+            video_path = d_dict.get("video_path")
+            real_m = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "videos", video_path.replace("/videos/", "")) if video_path else None
+            if not real_m:
+                 real_m = os.path.join(assets_dir, poster_xhs.replace("/assets/", "")) if poster_xhs else None
+                 
+            is_ok = OpenCLIXiaohongshuPublisher().push(content, title, [real_m] if real_m else [])
             if is_ok:
                 successes.append("xiaohongshu")
             else:
