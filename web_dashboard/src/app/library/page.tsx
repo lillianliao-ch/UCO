@@ -33,6 +33,10 @@ const PIPELINE_LABELS: Record<string, { label: string; accent: string }> = {
   ai_tech_trends_monitor: { label: "AI 技术动态速报", accent: "#7c3aed" },
   ai_news_video_daily: { label: "AI 短视频日报", accent: "#e11d48" },
   solopreneur_patterns: { label: "独立创客洞察", accent: "#059669" },
+  ai_industry_intel_monitor: { label: "AI 产业情报监控", accent: "#0891b2" },
+  ai_talent_tracking: { label: "AI 人才动态追踪", accent: "#d97706" },
+  finance_insights: { label: "金融科技洞察", accent: "#4f46e5" },
+  github_talent_radar: { label: "GitHub 人才雷达", accent: "#1d4ed8" },
 };
 
 export default function LibraryPage() {
