@@ -30,13 +30,15 @@ const CHANNEL_LABELS: Record<string, { label: string; dot: string }> = {
 
 const PIPELINE_LABELS: Record<string, { label: string; accent: string }> = {
   ai_news_daily: { label: "AI 宏观行情与产品观察", accent: "#0a66c2" },
-  ai_tech_trends_monitor: { label: "AI 技术动态速报", accent: "#7c3aed" },
-  ai_news_video_daily: { label: "AI 短视频日报", accent: "#e11d48" },
-  solopreneur_patterns: { label: "独立创客洞察", accent: "#059669" },
-  ai_industry_intel_monitor: { label: "AI 产业情报监控", accent: "#0891b2" },
-  ai_talent_tracking: { label: "AI 人才动态追踪", accent: "#d97706" },
-  finance_insights: { label: "金融科技洞察", accent: "#4f46e5" },
-  github_talent_radar: { label: "GitHub 人才雷达", accent: "#1d4ed8" },
+  ai_tech_trends_monitor: { label: "AI 技术趋势监控（YouTube+V2EX）", accent: "#7c3aed" },
+  ai_news_video_daily: { label: "AI 行业日报短视频", accent: "#e11d48" },
+  solopreneur_patterns: { label: "超级个体与一人公司业务模式库", accent: "#059669" },
+  ai_industry_intel_monitor: { label: "深科技猎头专线（人事/融资/M&A）", accent: "#0891b2" },
+  ai_talent_tracking: { label: "高级领军 AI 人才异动哨兵", accent: "#d97706" },
+  finance_insights: { label: "金融资本与算力投资风向标", accent: "#4f46e5" },
+  github_talent_radar: { label: "GitHub AI 项目与人才雷达", accent: "#1d4ed8" },
+  live_footprint_monitor: { label: "绝密全网足迹监控网", accent: "#374151" },
+  arxiv_paper_radar: { label: "ArXiv 学术论文与作者雷达", accent: "#9333ea" },
 };
 
 export default function LibraryPage() {

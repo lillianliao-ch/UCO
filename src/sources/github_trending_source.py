@@ -79,11 +79,14 @@ def is_ai_related(repo: Dict) -> bool:
 class GitHubTrendingSource:
     """UCO 标准 Source 接口"""
 
-    def fetch(self, limit: int = 15, since: str = "daily", emit_events: bool = True) -> List[RawContentEvent]:
+    def fetch(self, limit: int = 15, since: str = "daily", emit_events: bool = True, min_stars: int = 100) -> List[RawContentEvent]:
         print(f"🔍 [GitHub Trending Source] 抓取 {since} trending...")
         repos = fetch_github_trending(since=since)
         ai_repos = [r for r in repos if is_ai_related(r)]
-        print(f"   获取 {len(repos)} 个项目，其中 AI 相关 {len(ai_repos)} 个")
+        # Hard filter: reject repos below minimum star threshold
+        quality_repos = [r for r in ai_repos if r["stars"] >= min_stars]
+        rejected = len(ai_repos) - len(quality_repos)
+        print(f"   获取 {len(repos)} 个项目，AI 相关 {len(ai_repos)} 个，star≥{min_stars} 质控后 {len(quality_repos)} 个（淘汰 {rejected} 个低星项目）")
 
         # 广播到事件总线
         if emit_events and ai_repos:
@@ -97,7 +100,7 @@ class GitHubTrendingSource:
                 print(f"   ⚠️ 事件总线广播失败（不影响管线）: {e}")
 
         events = []
-        for repo in ai_repos[:limit]:
+        for repo in quality_repos[:limit]:
             contributors_str = ", ".join(repo["contributors"][:3])
             content = f"**{repo['full_name']}** ⭐ {repo['stars']:,} (+{repo['today_stars']} today)\n\n"
             content += f"{repo['description']}\n\n"
