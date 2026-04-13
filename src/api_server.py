@@ -333,6 +333,91 @@ def get_all_published():
         published = [dict(row) for row in rows]
     return {"status": "success", "data": published}
 
+@app.get("/api/library")
+def get_content_library():
+    """
+    Unified Content Library — merges ALL run_artifacts (Telegram/Feishu/XHS direct sends)
+    with PUBLISHED drafts into a single chronological feed, each tagged with pipeline_id
+    and channel delivery status for frontend grouping.
+    """
+    sm = EventStateManager()
+    library = []
+    with sqlite3.connect(sm.db_path) as conn:
+        conn.row_factory = sqlite3.Row
+
+        # 1. All run_artifacts (covers Telegram, Feishu, video_draft, xiaohongshu direct sends)
+        artifacts = conn.execute("""
+            SELECT a.artifact_id as id, a.pipeline_id, a.title, a.markdown_body,
+                   a.event_url, a.channel_status_json, a.created_at,
+                   h.pipeline_id as run_pipeline_id
+            FROM run_artifacts a
+            LEFT JOIN pipeline_run_history h ON a.run_id = h.run_id
+            ORDER BY a.created_at DESC
+            LIMIT 500
+        """).fetchall()
+
+        for row in artifacts:
+            d = dict(row)
+            cs = json.loads(d.get("channel_status_json") or "{}")
+            # Derive the channels that were actually reached
+            channels_hit = []
+            for ch, status_obj in cs.items():
+                s = status_obj.get("status", "") if isinstance(status_obj, dict) else str(status_obj)
+                if s in ("success", "draft_saved"):
+                    channels_hit.append(ch)
+
+            library.append({
+                "id": d["id"],
+                "source": "artifact",
+                "pipeline_id": d["pipeline_id"],
+                "title": d["title"],
+                "markdown_body": d["markdown_body"],
+                "event_url": d.get("event_url"),
+                "channels": channels_hit,
+                "channel_status": cs,
+                "created_at": d["created_at"],
+                "poster_path_xhs": None,
+                "poster_path_wx": None,
+                "video_path": None,
+            })
+
+        # 2. Published drafts (may have poster/video assets not in artifacts)
+        drafts = conn.execute("""
+            SELECT draft_id, pipeline_id, title, markdown_body, created_at,
+                   poster_path_xhs, poster_path_wx, video_path
+            FROM content_drafts
+            WHERE status = 'PUBLISHED'
+            ORDER BY created_at DESC
+        """).fetchall()
+
+        existing_titles = {item["title"] + item["created_at"][:10] for item in library}
+        for row in drafts:
+            d = dict(row)
+            dedup_key = d["title"] + d["created_at"][:10]
+            if dedup_key not in existing_titles:
+                library.append({
+                    "id": d["draft_id"],
+                    "source": "draft_published",
+                    "pipeline_id": d["pipeline_id"],
+                    "title": d["title"],
+                    "markdown_body": d["markdown_body"],
+                    "event_url": None,
+                    "channels": ["xiaohongshu"],
+                    "channel_status": {"xiaohongshu": {"status": "published"}},
+                    "created_at": d["created_at"],
+                    "poster_path_xhs": d.get("poster_path_xhs"),
+                    "poster_path_wx": d.get("poster_path_wx"),
+                    "video_path": d.get("video_path"),
+                })
+
+    # Sort merged list by created_at descending
+    library.sort(key=lambda x: x["created_at"], reverse=True)
+
+    # Collect distinct pipeline IDs for the filter UI
+    pipeline_ids = sorted(set(item["pipeline_id"] for item in library if item["pipeline_id"]))
+
+    return {"status": "success", "data": library, "pipelines": pipeline_ids}
+
 @app.put("/api/drafts/{draft_id}")
 def update_draft(draft_id: str, req: DraftUpdateRequest):
     sm = EventStateManager()
