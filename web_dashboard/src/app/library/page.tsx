@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ReactMarkdown from 'react-markdown';
-import { RefreshCw, BookOpen, Clock, CalendarDays, ExternalLink, Filter, Send, MessageSquare, Video } from "lucide-react";
+import { RefreshCw, BookOpen, Clock, CalendarDays, ExternalLink, Filter, ChevronDown, ChevronUp } from "lucide-react";
 
 interface LibraryItem {
   id: string;
@@ -19,19 +19,20 @@ interface LibraryItem {
   video_path?: string;
 }
 
-const CHANNEL_LABELS: Record<string, { label: string; color: string; icon: string }> = {
-  telegram: { label: "Telegram", color: "bg-sky-100 text-sky-700 border-sky-200", icon: "📲" },
-  xiaohongshu: { label: "小红书", color: "bg-red-50 text-red-600 border-red-200", icon: "📕" },
-  wechat: { label: "微信公众号", color: "bg-green-50 text-green-700 border-green-200", icon: "💬" },
-  wecom: { label: "企业微信", color: "bg-blue-50 text-blue-700 border-blue-200", icon: "🏢" },
-  feishu: { label: "飞书", color: "bg-indigo-50 text-indigo-700 border-indigo-200", icon: "🪶" },
-  video_draft: { label: "短视频", color: "bg-purple-50 text-purple-700 border-purple-200", icon: "🎬" },
+const CHANNEL_LABELS: Record<string, { label: string; dot: string }> = {
+  telegram: { label: "Telegram", dot: "bg-sky-400" },
+  xiaohongshu: { label: "小红书", dot: "bg-red-400" },
+  wechat: { label: "微信公众号", dot: "bg-green-500" },
+  wecom: { label: "企业微信", dot: "bg-blue-500" },
+  feishu: { label: "飞书", dot: "bg-indigo-500" },
+  video_draft: { label: "短视频", dot: "bg-purple-500" },
 };
 
-const PIPELINE_LABELS: Record<string, { label: string; color: string }> = {
-  ai_news_daily: { label: "📰 AI 宏观行情与产品观察", color: "from-blue-500 to-cyan-500" },
-  ai_tech_trends_monitor: { label: "🔬 AI 技术动态速报", color: "from-violet-500 to-purple-500" },
-  ai_news_video_daily: { label: "🎬 AI 短视频日报", color: "from-rose-500 to-orange-500" },
+const PIPELINE_LABELS: Record<string, { label: string; accent: string }> = {
+  ai_news_daily: { label: "AI 宏观行情与产品观察", accent: "#0a66c2" },
+  ai_tech_trends_monitor: { label: "AI 技术动态速报", accent: "#7c3aed" },
+  ai_news_video_daily: { label: "AI 短视频日报", accent: "#e11d48" },
+  solopreneur_patterns: { label: "独立创客洞察", accent: "#059669" },
 };
 
 export default function LibraryPage() {
@@ -39,6 +40,7 @@ export default function LibraryPage() {
   const [allPipelines, setAllPipelines] = useState<string[]>([]);
   const [activePipeline, setActivePipeline] = useState<string>("__all__");
   const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const fetchLibrary = async () => {
     setLoading(true);
@@ -55,16 +57,20 @@ export default function LibraryPage() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchLibrary();
-  }, []);
+  useEffect(() => { fetchLibrary(); }, []);
 
-  // Filter by active pipeline
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
   const filteredItems = activePipeline === "__all__"
     ? items
     : items.filter(item => item.pipeline_id === activePipeline);
 
-  // Group by Date
   const groupedItems = filteredItems.reduce((acc, item) => {
     const dateTitle = new Date(item.created_at).toLocaleDateString('zh-CN', {
       year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
@@ -75,165 +81,191 @@ export default function LibraryPage() {
   }, {} as Record<string, LibraryItem[]>);
 
   const getPipelineLabel = (pid: string) => PIPELINE_LABELS[pid]?.label || pid;
-  const getPipelineGradient = (pid: string) => PIPELINE_LABELS[pid]?.color || "from-gray-400 to-gray-500";
+  const getPipelineAccent = (pid: string) => PIPELINE_LABELS[pid]?.accent || "#6b7280";
+
+  // Decide if body is "long" (needs expand/collapse)
+  const isLong = (body: string) => body.length > 600;
 
   return (
     <div className="flex flex-col w-full min-h-screen bg-[#f8f9fa] relative pb-20 font-sans">
-      {/* Header */}
+      {/* Sticky Header */}
       <div className="flex justify-between items-center px-6 py-3 border-b border-[#dadce0] sticky top-0 bg-white z-20 shadow-sm">
         <h1 className="text-[18px] font-semibold text-gray-900 flex items-center gap-2">
-          <BookOpen className="text-blue-500" size={20} /> 内容金库 (Content Library)
+          <BookOpen className="text-[#0a66c2]" size={20} /> 内容金库
         </h1>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-500 font-medium">{filteredItems.length} 篇物料</span>
+          <span className="text-xs text-gray-400">{filteredItems.length} 篇物料</span>
           <button
             onClick={fetchLibrary}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 border border-[#dadce0] rounded-lg bg-white text-xs font-medium text-gray-700 hover:bg-[#f1f3f4] transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-[#dadce0] rounded-lg bg-white text-xs font-medium text-gray-600 hover:bg-[#f1f3f4] transition"
           >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            同步金库
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> 刷新
           </button>
         </div>
       </div>
 
-      <div className="p-6 w-full max-w-[1240px] mx-auto flex flex-col gap-6">
-        {/* Description + Pipeline Filter Bar */}
-        <div>
-          <h2 className="text-[20px] font-semibold text-gray-900 leading-tight">全量物料档案</h2>
-          <p className="text-gray-500 text-sm mt-1">所有通过 UCO 生成并分发至外部节点的成品内容（Telegram 速报、小红书图文、飞书战报、短视频等），按管线归类沉淀。</p>
-        </div>
+      {/* Reading Pane */}
+      <div className="w-full max-w-[780px] mx-auto px-4 py-6 flex flex-col gap-6">
 
-        {/* Pipeline Tabs */}
+        {/* Pipeline Filter Chips */}
         <div className="flex flex-wrap gap-2 items-center">
-          <Filter size={14} className="text-gray-400 mr-1" />
+          <Filter size={13} className="text-gray-400" />
           <button
             onClick={() => setActivePipeline("__all__")}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+            className={`px-3 py-1 rounded-full text-[12px] font-medium border transition-all ${
               activePipeline === "__all__"
-                ? "bg-gray-900 text-white border-gray-900"
-                : "bg-white text-gray-600 border-[#dadce0] hover:bg-gray-50"
+                ? "bg-gray-800 text-white border-gray-800"
+                : "bg-white text-gray-500 border-[#dadce0] hover:border-gray-400"
             }`}
-          >
-            全部管线
-          </button>
+          >全部</button>
           {allPipelines.map(pid => (
             <button
               key={pid}
               onClick={() => setActivePipeline(pid)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+              className={`px-3 py-1 rounded-full text-[12px] font-medium border transition-all ${
                 activePipeline === pid
-                  ? "bg-[#0a66c2] text-white border-[#0a66c2]"
-                  : "bg-white text-gray-600 border-[#dadce0] hover:bg-blue-50 hover:border-blue-300"
+                  ? "text-white border-transparent"
+                  : "bg-white text-gray-500 border-[#dadce0] hover:border-gray-400"
               }`}
+              style={activePipeline === pid ? { backgroundColor: getPipelineAccent(pid), borderColor: getPipelineAccent(pid) } : {}}
             >
               {getPipelineLabel(pid)}
             </button>
           ))}
         </div>
 
-        {/* Content */}
+        {/* Content Stream */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 text-gray-400 gap-4">
-            <RefreshCw className="animate-spin" size={32} />
-            正在从 SQLite 读取历史金库...
+          <div className="flex flex-col items-center py-32 text-gray-400 gap-3">
+            <RefreshCw className="animate-spin" size={28} />
+            <span className="text-sm">加载中...</span>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl p-24 text-center">
-            <div className="text-5xl mb-4">📭</div>
-            <h3 className="text-xl font-bold text-gray-900">暂无内容</h3>
-            <p className="text-gray-500 mt-2">当管线执行并成功分发内容后，档案会自动沉淀至此。</p>
+          <div className="bg-white border border-dashed border-gray-300 rounded-xl p-16 text-center">
+            <div className="text-4xl mb-3">📭</div>
+            <p className="text-gray-500 text-sm">暂无内容</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-10">
             {Object.entries(groupedItems).map(([dateLabel, dailyItems]) => (
-              <div key={dateLabel} className="flex flex-col gap-4">
-                {/* Date Separator */}
-                <div className="flex items-center gap-3 sticky top-14 bg-[#f8f9fa] py-2 z-10">
-                  <div className="flex items-center gap-2 px-3 py-1 bg-white border border-gray-200 rounded-full shadow-sm">
-                    <CalendarDays className="text-blue-500" size={14} />
-                    <span className="text-sm font-bold text-gray-800">{dateLabel}</span>
-                  </div>
+              <div key={dateLabel}>
+                {/* Date Header */}
+                <div className="flex items-center gap-3 mb-5">
+                  <CalendarDays className="text-gray-400" size={15} />
+                  <span className="text-[13px] font-bold text-gray-700">{dateLabel}</span>
                   <div className="h-px bg-gray-200 flex-1"></div>
-                  <span className="text-xs font-medium text-gray-400">{dailyItems.length} 篇</span>
+                  <span className="text-[11px] text-gray-400">{dailyItems.length} 篇</span>
                 </div>
 
-                {/* Cards */}
-                <div className="flex flex-col gap-4">
-                  {dailyItems.map((item) => (
-                    <div key={item.id} className="bg-white border border-[#dadce0] rounded-xl overflow-hidden hover:shadow-md transition-all group">
-                      {/* Pipeline gradient bar */}
-                      <div className={`h-1 bg-gradient-to-r ${getPipelineGradient(item.pipeline_id)}`}></div>
+                {/* Articles */}
+                <div className="flex flex-col gap-6">
+                  {dailyItems.map((item) => {
+                    const expanded = expandedIds.has(item.id);
+                    const needsCollapse = isLong(item.markdown_body);
+                    const accent = getPipelineAccent(item.pipeline_id);
 
-                      <div className="p-5 flex gap-5">
-                        {/* Media thumbnail (left, if exists) */}
-                        {(item.video_path || item.poster_path_xhs || item.poster_path_wx) && (
-                          <div className="w-28 h-28 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 relative">
-                            {item.video_path ? (
-                              <>
-                                <video
-                                  src={`http://localhost:8000${item.video_path}`}
-                                  className="w-full h-full object-cover"
-                                  preload="metadata"
-                                ></video>
-                                <div className="absolute bottom-1 right-1 bg-red-500 text-white text-[9px] font-bold px-1 py-0.5 rounded">VIDEO</div>
-                              </>
-                            ) : (
-                              <img
-                                src={`http://localhost:8000${item.poster_path_xhs || item.poster_path_wx}`}
-                                alt=""
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-                          </div>
-                        )}
+                    return (
+                      <article key={item.id} className="bg-white rounded-xl border border-[#e5e7eb] overflow-hidden hover:border-[#c5c9d0] transition-colors">
+                        {/* Thin accent bar */}
+                        <div className="h-[3px]" style={{ backgroundColor: accent }}></div>
 
-                        {/* Text body (right) */}
-                        <div className="flex-1 min-w-0 flex flex-col">
-                          {/* Top: Title + Pipeline badge */}
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <h3 className="font-bold text-[15px] text-gray-900 leading-snug line-clamp-2">
-                              {item.title}
-                            </h3>
-                          </div>
-
-                          {/* Meta row */}
-                          <div className="flex items-center gap-2 flex-wrap mb-2.5">
-                            <span className="text-[11px] text-gray-500 font-mono bg-gray-50 border border-gray-100 px-2 py-0.5 rounded flex items-center gap-1">
-                              <Clock size={10} /> {new Date(item.created_at).toLocaleTimeString('zh-CN')}
-                            </span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white bg-gradient-to-r ${getPipelineGradient(item.pipeline_id)}`}>
+                        <div className="px-6 pt-5 pb-5">
+                          {/* Meta line */}
+                          <div className="flex items-center gap-2 flex-wrap mb-3">
+                            <span
+                              className="text-[11px] font-semibold px-2 py-0.5 rounded text-white"
+                              style={{ backgroundColor: accent }}
+                            >
                               {getPipelineLabel(item.pipeline_id)}
                             </span>
+                            <span className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
+                              <Clock size={10} />
+                              {new Date(item.created_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
                             {item.event_url && (
-                              <a href={item.event_url} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 hover:underline flex items-center gap-0.5">
-                                <ExternalLink size={10} /> 原文
+                              <a href={item.event_url} target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 hover:underline flex items-center gap-0.5 ml-auto">
+                                <ExternalLink size={10} /> 原文链接
                               </a>
                             )}
                           </div>
 
-                          {/* Content preview */}
-                          <div className="prose prose-sm prose-blue max-w-none text-xs text-gray-600 line-clamp-3 opacity-80 mb-3">
-                            <ReactMarkdown>{item.markdown_body}</ReactMarkdown>
-                          </div>
+                          {/* Title */}
+                          <h2 className="text-[17px] font-bold text-gray-900 leading-relaxed mb-4">
+                            {item.title}
+                          </h2>
 
-                          {/* Channel delivery badges (bottom) */}
-                          <div className="flex flex-wrap gap-1.5 mt-auto">
-                            {item.channels.map(ch => {
-                              const info = CHANNEL_LABELS[ch] || { label: ch, color: "bg-gray-100 text-gray-600 border-gray-200", icon: "📡" };
-                              return (
-                                <span key={ch} className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${info.color}`}>
-                                  {info.icon} {info.label}
-                                </span>
-                              );
-                            })}
-                            {item.channels.length === 0 && (
-                              <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">无分发记录</span>
+                          {/* Media (inline, if available) */}
+                          {item.video_path && (
+                            <div className="mb-4 rounded-lg overflow-hidden border border-gray-200 bg-black">
+                              <video
+                                src={`http://localhost:8000${item.video_path}`}
+                                className="w-full max-h-[400px]"
+                                controls
+                                preload="metadata"
+                              ></video>
+                            </div>
+                          )}
+                          {!item.video_path && (item.poster_path_xhs || item.poster_path_wx) && (
+                            <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
+                              <img
+                                src={`http://localhost:8000${item.poster_path_xhs || item.poster_path_wx}`}
+                                alt=""
+                                className="w-full max-h-[360px] object-contain bg-gray-50"
+                              />
+                            </div>
+                          )}
+
+                          {/* Markdown Body — full readable article */}
+                          <div
+                            className={`prose prose-sm prose-gray max-w-none
+                              prose-headings:text-gray-800 prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
+                              prose-p:text-[14px] prose-p:leading-[1.85] prose-p:text-gray-700 prose-p:my-2
+                              prose-li:text-[14px] prose-li:text-gray-700 prose-li:leading-[1.8]
+                              prose-strong:text-gray-900
+                              prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
+                              prose-code:text-[13px] prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-rose-600
+                              prose-blockquote:border-l-[3px] prose-blockquote:border-gray-300 prose-blockquote:text-gray-500 prose-blockquote:italic
+                              ${!expanded && needsCollapse ? 'max-h-[280px] overflow-hidden relative' : ''}`}
+                          >
+                            <ReactMarkdown>{item.markdown_body}</ReactMarkdown>
+                            {/* Fade overlay when collapsed */}
+                            {!expanded && needsCollapse && (
+                              <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
                             )}
                           </div>
+
+                          {/* Expand / Collapse toggle */}
+                          {needsCollapse && (
+                            <button
+                              onClick={() => toggleExpand(item.id)}
+                              className="flex items-center gap-1 mt-2 text-[12px] font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                            >
+                              {expanded ? <><ChevronUp size={14} /> 收起</> : <><ChevronDown size={14} /> 展开全文</>}
+                            </button>
+                          )}
+
+                          {/* Channel delivery footer */}
+                          <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100">
+                            <span className="text-[11px] text-gray-400">已分发至</span>
+                            <div className="flex flex-wrap gap-2">
+                              {item.channels.map(ch => {
+                                const info = CHANNEL_LABELS[ch] || { label: ch, dot: "bg-gray-400" };
+                                return (
+                                  <span key={ch} className="flex items-center gap-1.5 text-[11px] text-gray-600 font-medium">
+                                    <span className={`w-[6px] h-[6px] rounded-full ${info.dot}`}></span>
+                                    {info.label}
+                                  </span>
+                                );
+                              })}
+                              {item.channels.length === 0 && (
+                                <span className="text-[11px] text-gray-300">—</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      </article>
+                    );
+                  })}
                 </div>
               </div>
             ))}
