@@ -122,7 +122,9 @@ export default function PipelinesPage() {
     
     // Agent-Reach API Sources
     "youtube_ai_trends": { label: "▶️ YouTube AI 趋势", desc: "油管优质 AI 教程与深度解析视频" },
-    "v2ex_ai_discussions": { label: "💬 V2EX 技术社区", desc: "国内优质程序员论坛 ML/OpenAI 节点热议" }
+    "v2ex_ai_discussions": { label: "💬 V2EX 技术社区", desc: "国内优质程序员论坛 ML/OpenAI 节点热议" },
+    "bilibili_ai_search": { label: "📺 B站 AI 核爆榜", desc: "破圈爆款的硬核测评与自媒体视频切片" },
+    "xiaohongshu_ai_monitor": { label: "📕 小红书爆款探针", desc: "穿透 CDP 热搜采集底层痛点与搞钱套路" }
   };
 
   const PUB_MAP: Record<string, string> = {
@@ -139,7 +141,7 @@ export default function PipelinesPage() {
     "📊 TrendRadar 实况舆情": ["tr_baidu", "tr_weibo", "tr_bilibili-hot-search", "tr_zhihu", "tr_toutiao", "tr_wallstreetcn-hot"],
     "🇨🇳 本土创投与商业媒体": ["rss_36kr", "rss_tmtpost", "rss_jiqizhixin", "rss_geekpark"],
     "🌐 硅谷大厂与极客风投": ["rss_techcrunch", "rss_wsj", "rss_hackernews", "rss_producthunt"],
-    "🤖 Agent-Reach 新生态": ["youtube_ai_trends", "v2ex_ai_discussions"],
+    "🤖 Agent-Reach 新生态": ["youtube_ai_trends", "v2ex_ai_discussions", "bilibili_ai_search", "xiaohongshu_ai_monitor"],
     "🔒 追踪与审查引擎": ["live_footprint_source"]
   };
 

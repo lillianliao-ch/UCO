@@ -337,6 +337,16 @@ def run_dynamic_pipeline(pipe):
             v2ex = V2EXSource(node_ids=['678', '1135'])
             fetch_with_probe("V2EX", lambda: v2ex.fetch(limit=5), events)
 
+        # 9. B站深度内容/评测监控
+        if "bilibili_ai_search" in source_refs:
+            from src.sources.bilibili_search_source import BilibiliAISource
+            fetch_with_probe("Bilibili_AI", lambda: BilibiliAISource(keyword="AI 工具").fetch(limit=5), events)
+
+        # 10. 小红书极速爆款提取 (CDP Session-based)
+        if "xiaohongshu_ai_monitor" in source_refs:
+            from src.sources.xhs_source import XiaohongshuSource
+            fetch_with_probe("XHS_AI", lambda: XiaohongshuSource(keyword="AI工具", port=9224).fetch(limit=5), events)
+
         items_scraped = len(events)
         print(f"🛡️ [1.5] 海马体记忆介入，当前原始情报池大小: {items_scraped}。开始过滤...")
         
